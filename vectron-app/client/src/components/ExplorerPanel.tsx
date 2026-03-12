@@ -132,7 +132,7 @@ export default function ExplorerPanel({ nodes, focusedFileId, onFileClick }: Exp
     const tree = useMemo(() => buildTree(fileNodes), [fileNodes]);
 
     return (
-        <div className="explorer-panel">
+        <div className="explorer-tree-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div className="panel-header">EXPLORER</div>
             <div className="explorer-tree">
                 {tree.children.map(child => child.type === 'dir'

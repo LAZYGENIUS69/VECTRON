@@ -122,7 +122,7 @@ function tint(a: string, b: string, t: number): string {
   const [br, bg, bb] = hexRgb(b);
   return rgbHex(
     ar + (br - ar) * t,
-    ag + (bg - ag) * t,
+    ag + (br - ag) * t,
     ab + (bb - ab) * t,
   );
 }
@@ -166,10 +166,13 @@ interface Props {
   selectedId:     string | null;
   focusedFileId?: string | null;
   onNodeClick:    (id: string) => void;
+  nodeFilters:    Record<string, boolean>;
+  edgeFilters:    Record<string, boolean>;
+  queryIds:       Set<string>;
 }
 
 export default function GraphView2D({
-  data, vectronMode, blastIds, depthMap, selectedId, focusedFileId, onNodeClick,
+  data, vectronMode, blastIds, depthMap, selectedId, focusedFileId, onNodeClick, nodeFilters, edgeFilters, queryIds,
 }: Props) {
 
   /* ─── refs ─────────────────────────────────────────────────────── */
@@ -185,12 +188,18 @@ export default function GraphView2D({
   const depthRef  = useRef(depthMap);
   const selRef    = useRef(selectedId);
   const clickRef  = useRef(onNodeClick);
+  const nFilterRef = useRef(nodeFilters);
+  const eFilterRef = useRef(edgeFilters);
+  const queryRef  = useRef(queryIds);
 
   useEffect(() => { vModeRef.current = vectronMode; }, [vectronMode]);
   useEffect(() => { blastRef.current = blastIds;     }, [blastIds]);
   useEffect(() => { depthRef.current = depthMap;     }, [depthMap]);
   useEffect(() => { selRef.current   = selectedId;   }, [selectedId]);
   useEffect(() => { clickRef.current = onNodeClick;  }, [onNodeClick]);
+  useEffect(() => { nFilterRef.current = nodeFilters; }, [nodeFilters]);
+  useEffect(() => { eFilterRef.current = edgeFilters; }, [edgeFilters]);
+  useEffect(() => { queryRef.current = queryIds;     }, [queryIds]);
 
   const [computing, setComputing] = useState(false);
 
@@ -222,9 +231,9 @@ export default function GraphView2D({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trigger repaint when highlight state changes
+  // Trigger repaint when highlight state or filters change
   useEffect(() => { sigmaRef.current?.refresh(); },
-    [vectronMode, blastIds, depthMap, selectedId]);
+    [vectronMode, blastIds, depthMap, selectedId, nodeFilters, edgeFilters, queryIds]);
 
   // Fly camera to file node selected in explorer
   useEffect(() => {
@@ -364,6 +373,7 @@ export default function GraphView2D({
       if (graph.hasEdge(e.source, e.target)) return;
       const vis = LINK_VISUALS[e.kind] ?? LINK_VISUALS._fallback;
       graph.addEdge(e.source, e.target, {
+        kind:      e.kind,
         size:      Math.max(0.5, vis.width),
         color:     vis.hue + vis.opacity,
         type:      'curved',
@@ -401,11 +411,41 @@ export default function GraphView2D({
       */
       nodeReducer: (nid, attrs) => {
         const out      = { ...attrs };
+
+        // ── Filter visibility ──
+        const nodeType = attrs.nodeType as string;
+        if (nFilterRef.current[nodeType] === false) {
+          return { ...out, hidden: true };
+        } else {
+          out.hidden = false;
+        }
+
         const isBlast  = vModeRef.current;
         const blast    = blastRef.current;
         const sel      = selRef.current;
+        const query    = queryRef.current;
         const origClr  = attrs.color as string;
         const origSize = attrs.size  as number;
+
+        // ── AI Query highlighting ──
+        if (query.size > 0 && !isBlast) {
+          if (query.has(nid)) {
+            return {
+              ...out,
+              color: '#FFFFFF',
+              size: origSize * 1.8,
+              zIndex: 3,
+              highlighted: true,
+            };
+          } else {
+            return {
+              ...out,
+              color: attenuate(origClr, 0.12),
+              size: origSize * 0.4,
+              zIndex: 0,
+            };
+          }
+        }
 
         // ── Blast-radius overlay ──
         if (isBlast && blast.size > 0) {
@@ -442,12 +482,30 @@ export default function GraphView2D({
       */
       edgeReducer: (eid, attrs) => {
         const out  = { ...attrs };
+
+        // ── Filter visibility ──
+        const edgeKind = attrs.kind as string;
+        if (eFilterRef.current[edgeKind] === false) {
+          return { ...out, hidden: true };
+        }
+
         const isV  = vModeRef.current;
         const blast= blastRef.current;
         const sel  = selRef.current;
+        const query= queryRef.current;
         const g    = graphRef.current;
         if (!g) return out;
         const [src, tgt] = g.extremities(eid);
+
+        // ── AI Query highlighting ──
+        if (query.size > 0 && !isV) {
+          const sIn = query.has(src);
+          const tIn = query.has(tgt);
+          if (sIn && tIn) {
+            return { ...out, color: '#FFFFFF44', size: (attrs.size as number) * 2, zIndex: 2 };
+          }
+          return { ...out, color: '#06060a', size: 0.1, zIndex: 0 };
+        }
 
         if (isV && blast.size > 0) {
           const sIn = blast.has(src) || src === sel;

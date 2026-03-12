@@ -3,6 +3,7 @@ dist/
 *.local
 .env
 .env.*
+server/.env
 .DS_Store
 Thumbs.db
 *.tsbuildinfo

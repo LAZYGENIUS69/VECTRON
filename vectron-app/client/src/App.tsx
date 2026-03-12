@@ -8,6 +8,8 @@ import MetricsPanel from './components/MetricsPanel';
 import PromptPanel from './components/PromptPanel';
 import ExplorerPanel from './components/ExplorerPanel';
 import CodeInspector from './components/CodeInspector';
+import FilterPanel from './components/FilterPanel';
+import QueryPanel from './components/QueryPanel';
 
 export default function App() {
     const [graph, setGraph] = useState<GraphData | null>(null);
@@ -15,6 +17,23 @@ export default function App() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [focusedFileId, setFocusedFileId] = useState<string | null>(null);
     const [inspectorOpen, setInspectorOpen] = useState(false);
+    const [queryNodeIds, setQueryNodeIds] = useState<Set<string>>(new Set());
+
+    // Filter states
+    const [nodeFilters, setNodeFilters] = useState<Record<string, boolean>>({
+        file: true,
+        function: true,
+        class: true,
+        method: true,
+        import: false
+    });
+    const [edgeFilters, setEdgeFilters] = useState<Record<string, boolean>>({
+        DEFINES: true,
+        IMPORTS: true,
+        CALLS: true,
+        EXTENDS: true,
+        CONTAINS: false
+    });
 
     // DEBUG: expose handle for headless testing
     useEffect(() => {
@@ -60,6 +79,7 @@ export default function App() {
         setFocusedFileId(null);
         setVectronMode(false);
         setInspectorOpen(false);
+        setQueryNodeIds(new Set());
     }, []);
 
     const handleUploadNew = useCallback(() => {
@@ -68,7 +88,16 @@ export default function App() {
         setFocusedFileId(null);
         setVectronMode(false);
         setInspectorOpen(false);
+        setQueryNodeIds(new Set());
     }, []);
+
+    const handleQueryResult = (nodeIds: string[]) => {
+        setQueryNodeIds(new Set(nodeIds));
+    };
+
+    const handleClearQuery = () => {
+        setQueryNodeIds(new Set());
+    };
 
     return (
         <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#0A0F1A' }}>
@@ -82,13 +111,21 @@ export default function App() {
             />
 
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-                {/* Left Panel — Explorer */}
+                {/* Left Panel — Explorer + Filters */}
                 {graph && (
-                    <ExplorerPanel
-                        nodes={graph.nodes}
-                        focusedFileId={focusedFileId}
-                        onFileClick={handleFileClick}
-                    />
+                    <div className="explorer-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <ExplorerPanel
+                            nodes={graph.nodes}
+                            focusedFileId={focusedFileId}
+                            onFileClick={handleFileClick}
+                        />
+                        <FilterPanel 
+                            nodeFilters={nodeFilters}
+                            setNodeFilters={setNodeFilters}
+                            edgeFilters={edgeFilters}
+                            setEdgeFilters={setEdgeFilters}
+                        />
+                    </div>
                 )}
 
                 {/* Center — Graph */}
@@ -104,11 +141,14 @@ export default function App() {
                             selectedId={selectedId}
                             focusedFileId={focusedFileId}
                             onNodeClick={handleNodeClick}
+                            nodeFilters={nodeFilters}
+                            edgeFilters={edgeFilters}
+                            queryIds={queryNodeIds}
                         />
                     )}
                 </div>
 
-                {/* Right Panel — Metrics + Prompt (no CodeInspector here) */}
+                {/* Right Panel — Metrics + Prompt + AI Query */}
                 {graph && (
                     <aside style={{ width: '360px', flexShrink: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', borderLeft: '1px solid rgba(0,217,255,0.15)', background: '#111827' }}>
                         <div style={{ flex: 1, overflowY: 'scroll', minHeight: 0 }}>
@@ -124,6 +164,11 @@ export default function App() {
                                 selectedLabel={selectedNode?.label ?? null}
                                 metrics={blast ?? null}
                                 graph={graph}
+                            />
+                            <QueryPanel 
+                                graph={graph}
+                                onQueryResult={handleQueryResult}
+                                onClearQuery={handleClearQuery}
                             />
                         </div>
                     </aside>
