@@ -122,7 +122,7 @@ function tint(a: string, b: string, t: number): string {
   const [br, bg, bb] = hexRgb(b);
   return rgbHex(
     ar + (br - ar) * t,
-    ag + (br - ag) * t,
+    ag + (bg - ag) * t,
     ab + (bb - ab) * t,
   );
 }
@@ -205,35 +205,44 @@ export default function GraphView2D({
 
   /* ─── lifecycle ────────────────────────────────────────────────── */
 
-  // One-shot init guarded by ResizeObserver
+  const cleanup = useCallback(() => {
+    timerRef.current && clearTimeout(timerRef.current);
+    layoutRef.current?.kill();
+    layoutRef.current = null;
+    sigmaRef.current?.kill();
+    sigmaRef.current = null;
+    graphRef.current = null;
+  }, []);
+
+  // Handle data changes and initialization
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
-    let didBoot = false;
+    if (!el || !data) return;
 
+    let didBoot = false;
     const ro = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
       if (!width || !height || didBoot) return;
       didBoot = true;
       ro.disconnect();
+      
+      cleanup();
       bootstrap(el);
     });
     ro.observe(el);
 
     return () => {
       ro.disconnect();
-      timerRef.current && clearTimeout(timerRef.current);
-      layoutRef.current?.kill();
-      layoutRef.current = null;
-      sigmaRef.current?.kill();
-      sigmaRef.current = null;
-      graphRef.current = null;
+      cleanup();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, cleanup]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Trigger repaint when highlight state or filters change
-  useEffect(() => { sigmaRef.current?.refresh(); },
-    [vectronMode, blastIds, depthMap, selectedId, nodeFilters, edgeFilters, queryIds]);
+  useEffect(() => { 
+    if (sigmaRef.current) {
+        sigmaRef.current.refresh();
+    }
+  }, [vectronMode, blastIds, depthMap, selectedId, nodeFilters, edgeFilters, queryIds]);
 
   // Fly camera to file node selected in explorer
   useEffect(() => {
@@ -256,24 +265,14 @@ export default function GraphView2D({
     const { nodes, edges } = data;
     const N = nodes.length;
 
-    /* ── 1. SEED LAYOUT — Fermat spiral for anchors ─────────────── 
-       
-       File nodes are the structural anchors. We place them on a
-       Fermat spiral (golden-angle based) so they are evenly
-       distributed without overlapping. Every child node (function,
-       class, method) is then scattered near its parent file with
-       gaussian jitter. FA2 refines from there — it doesn't need
-       to invent structure, only tighten it.
-    */
-    const SPIRAL_RADIUS  = Math.sqrt(N) * 40;   // wider than needed — FA2 compresses
+    /* ── 1. SEED LAYOUT — Fermat spiral for anchors ─────────────── */
+    const SPIRAL_RADIUS  = Math.sqrt(N) * 40;
     const SCATTER_RADIUS = Math.sqrt(N) * 3;
-    const PHI            = Math.PI * (3 - Math.sqrt(5)); // golden angle
+    const PHI            = Math.PI * (3 - Math.sqrt(5));
 
-    // Identify file (anchor) nodes
     const anchors    = nodes.filter(n => n.type === 'file');
     const dependents = nodes.filter(n => n.type !== 'file');
 
-    // Place anchors on Fermat spiral
     const anchorPos = new Map<string, { x: number; y: number }>();
     anchors.forEach((node, i) => {
       const theta = i * PHI;
@@ -285,20 +284,14 @@ export default function GraphView2D({
       });
     });
 
-    // Place dependents near their parent anchor
     const seedPos = new Map<string, { x: number; y: number }>();
     anchors.forEach(n => seedPos.set(n.id, anchorPos.get(n.id)!));
 
     dependents.forEach(n => {
-      // Imports cluster at origin — they're hidden anyway
       if (n.type === 'import') {
-        seedPos.set(n.id, {
-          x: (Math.random() - 0.5) * 5,
-          y: (Math.random() - 0.5) * 5,
-        });
+        seedPos.set(n.id, { x: (Math.random() - 0.5) * 5, y: (Math.random() - 0.5) * 5 });
         return;
       }
-      // Look up parent via fileId
       const parent = n.fileId ? anchorPos.get(n.fileId) : null;
       if (parent) {
         seedPos.set(n.id, {
@@ -306,15 +299,11 @@ export default function GraphView2D({
           y: parent.y + (Math.random() - 0.5) * SCATTER_RADIUS,
         });
       } else {
-        // Orphan — place randomly in inner third
-        seedPos.set(n.id, {
-          x: (Math.random() - 0.5) * SPIRAL_RADIUS * 0.3,
-          y: (Math.random() - 0.5) * SPIRAL_RADIUS * 0.3,
-        });
+        seedPos.set(n.id, { x: (Math.random() - 0.5) * SPIRAL_RADIUS * 0.3, y: (Math.random() - 0.5) * SPIRAL_RADIUS * 0.3 });
       }
     });
 
-    /* ── 2. DEGREE MAP — for size computation ───────────────────── */
+    /* ── 2. DEGREE MAP ───────────────────────────────────────────── */
     const degree = new Map<string, number>();
     nodes.forEach(n => degree.set(n.id, 0));
     edges.forEach(e => {
@@ -331,11 +320,7 @@ export default function GraphView2D({
       }
     });
 
-    /* ── 4. COMPUTE FINAL NODE COLORS ───────────────────────────── 
-       Entity kind provides base hue. Module membership tints it
-       at 30% blend — enough to see clusters, not enough to lose
-       type differentiation.
-    */
+    /* ── 4. COMPUTE FINAL NODE COLORS ───────────────────────────── */
     const nodeColor = new Map<string, string>();
     nodes.forEach(n => {
       const kindHue = KIND_HUES[n.type] ?? KIND_HUES._fallback;
@@ -362,12 +347,10 @@ export default function GraphView2D({
         nodeType: n.type,
         filePath: n.filePath,
         mass:     computeNodeMass(n.type, N),
-        hidden:   n.type === 'import',
       });
     });
 
     /* ── 6. ADD EDGES ───────────────────────────────────────────── */
-    let edgesAdded = 0;
     edges.forEach(e => {
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) return;
       if (graph.hasEdge(e.source, e.target)) return;
@@ -379,7 +362,6 @@ export default function GraphView2D({
         type:      'curved',
         curvature: 0.12 + Math.random() * 0.08,
       });
-      edgesAdded++;
     });
 
 
@@ -390,34 +372,25 @@ export default function GraphView2D({
       labelSize:    11,
       labelWeight:  '600',
       labelColor:   { color: '#e4e4ed' },
-
-      // Label visibility — tuned for readability at default zoom
       labelRenderedSizeThreshold: 8,
       labelDensity:               0.12,
       labelGridCellSize:          65,
-
       defaultEdgeType:    'curved',
       edgeProgramClasses: { curved: EdgeCurveProgram },
       defaultEdgeColor:   '#1f2937',
-
-      hideEdgesOnMove: true,   // performance: skip edge paint during drag/zoom
+      hideEdgesOnMove: true,
       minCameraRatio:  0.002,
       maxCameraRatio:  50,
       zIndex:          true,
 
-      /* ── NODE REDUCER ──────────────────────────────────────────
-         Runs per-frame for each visible node.
-         Reads from refs to avoid stale-closure bugs.
-      */
       nodeReducer: (nid, attrs) => {
-        const out      = { ...attrs };
+        const out = { ...attrs };
 
         // ── Filter visibility ──
         const nodeType = attrs.nodeType as string;
         if (nFilterRef.current[nodeType] === false) {
-          return { ...out, hidden: true };
-        } else {
-          out.hidden = false;
+          out.hidden = true;
+          return out;
         }
 
         const isBlast  = vModeRef.current;
@@ -430,20 +403,9 @@ export default function GraphView2D({
         // ── AI Query highlighting ──
         if (query.size > 0 && !isBlast) {
           if (query.has(nid)) {
-            return {
-              ...out,
-              color: '#FFFFFF',
-              size: origSize * 1.8,
-              zIndex: 3,
-              highlighted: true,
-            };
+            return { ...out, color: '#FFFFFF', size: origSize * 1.8, zIndex: 3, highlighted: true };
           } else {
-            return {
-              ...out,
-              color: attenuate(origClr, 0.12),
-              size: origSize * 0.4,
-              zIndex: 0,
-            };
+            return { ...out, color: attenuate(origClr, 0.12), size: origSize * 0.4, zIndex: 0 };
           }
         }
 
@@ -476,17 +438,14 @@ export default function GraphView2D({
         return out;
       },
 
-      /* ── EDGE REDUCER ──────────────────────────────────────────
-         Highlights edges connected to selected/blasted nodes.
-         Dims everything else to near-invisible.
-      */
       edgeReducer: (eid, attrs) => {
         const out  = { ...attrs };
 
         // ── Filter visibility ──
         const edgeKind = attrs.kind as string;
         if (eFilterRef.current[edgeKind] === false) {
-          return { ...out, hidden: true };
+          out.hidden = true;
+          return out;
         }
 
         const isV  = vModeRef.current;
@@ -499,9 +458,7 @@ export default function GraphView2D({
 
         // ── AI Query highlighting ──
         if (query.size > 0 && !isV) {
-          const sIn = query.has(src);
-          const tIn = query.has(tgt);
-          if (sIn && tIn) {
+          if (query.has(src) && query.has(tgt)) {
             return { ...out, color: '#FFFFFF44', size: (attrs.size as number) * 2, zIndex: 2 };
           }
           return { ...out, color: '#06060a', size: 0.1, zIndex: 0 };
@@ -524,9 +481,6 @@ export default function GraphView2D({
         return out;
       },
 
-      /* ── HOVER TOOLTIP ─────────────────────────────────────────
-         Dark pill with node-color border. VECTRON aesthetic.
-      */
       defaultDrawNodeHover: (ctx, d) => {
         const label = d.label as string | undefined;
         if (!label) return;
@@ -539,24 +493,20 @@ export default function GraphView2D({
         const cx = d.x as number;
         const cy = (d.y as number) - ns - 12;
 
-        // Dark pill
         ctx.fillStyle = '#0d1117';
         ctx.beginPath();
         ctx.roundRect(cx - w / 2, cy - h / 2, w, h, 3);
         ctx.fill();
 
-        // Color border
         ctx.strokeStyle = (d.color as string) || '#FF2D55';
         ctx.lineWidth   = 1.5;
         ctx.stroke();
 
-        // Label
         ctx.fillStyle    = '#e4e4ed';
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(label, cx, cy);
 
-        // Glow ring
         ctx.beginPath();
         ctx.arc(d.x as number, d.y as number, ns + 5, 0, Math.PI * 2);
         ctx.strokeStyle = (d.color as string) || '#FF2D55';
@@ -568,28 +518,14 @@ export default function GraphView2D({
     });
 
     sigmaRef.current = sigma;
-    // Flush WebGL before FA2 starts moving nodes
     setTimeout(() => sigma.refresh(), 100);
-    setTimeout(() => sigma.refresh(), 500);
 
-    // Wire events
     sigma.on('clickNode',  ({ node }) => clickRef.current(node));
     sigma.on('clickStage', ()         => clickRef.current(''));
     sigma.on('enterNode',  ()         => { container.style.cursor = 'pointer'; });
     sigma.on('leaveNode',  ()         => { container.style.cursor = 'default'; });
 
-    /* ── 8. FORCE-DIRECTED LAYOUT ────────────────────────────────
-       
-       We use graphology's `inferSettings` as a sensible baseline,
-       then merge our density-aware overrides on top. This is more
-       robust than hand-tuning every parameter for every graph size.
-       
-       Key insight: low gravity + high scaling ratio + low slowDown
-       lets clusters emerge naturally. outboundAttractionDistribution
-       equalises pull so high-degree nodes don't suck everything in.
-    */
     const inferred = forceAtlas2.inferSettings(graph);
-
     const overrides = {
       gravity:                        N < 500 ? 0.8 : N < 2000 ? 0.5 : N < 10000 ? 0.3 : 0.15,
       scalingRatio:                   N < 500 ? 15  : N < 2000 ? 30  : N < 10000 ? 60  : 100,
@@ -604,13 +540,7 @@ export default function GraphView2D({
     };
 
     const settings = { ...inferred, ...overrides };
-
-    // Duration — longer for larger graphs, let it truly converge
-    const duration =
-      N > 10000 ? 45000 :
-      N > 5000  ? 35000 :
-      N > 2000  ? 30000 :
-      N > 500   ? 25000 : 20000;
+    const duration = N > 10000 ? 45000 : N > 5000 ? 35000 : N > 2000 ? 30000 : N > 500 ? 25000 : 20000;
 
     const layout = new FA2Layout(graph, { settings });
     layoutRef.current = layout;
@@ -620,136 +550,45 @@ export default function GraphView2D({
     timerRef.current = setTimeout(() => {
       layout.stop();
       layoutRef.current = null;
-
-      // Resolve residual overlaps
-      noverlap.assign(graph, {
-        maxIterations: 20,
-        settings: { ratio: 1.1, margin: 10 },
-      });
-
+      noverlap.assign(graph, { maxIterations: 20, settings: { ratio: 1.1, margin: 10 } });
       sigma.getCamera().animatedReset({ duration: 700 });
       sigma.refresh();
       setComputing(false);
     }, duration);
   }
 
-  /* ═════════════════════════════════════════════════════════════════
-     RENDER
-     ═════════════════════════════════════════════════════════════════ */
-
   return (
-    <div style={{
-      width: '100%', height: '100%', position: 'relative',
-      background: '#06060a', overflow: 'hidden',
-    }}>
-
-      {/* VECTRON grid underlay */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-        backgroundImage: [
-          'linear-gradient(rgba(0,217,255,0.02) 1px, transparent 1px)',
-          'linear-gradient(90deg, rgba(0,217,255,0.02) 1px, transparent 1px)',
-        ].join(','),
-        backgroundSize: '48px 48px',
-      }} />
-
-      {/* Sigma canvas mount */}
-      <div ref={containerRef} style={{
-        width: '100%', height: '100%', position: 'relative', zIndex: 1,
-      }} />
-
-      {/* Scanline overlay (simulation mode only) */}
-      {vectronMode && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2,
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,255,148,0.01) 3px, rgba(0,255,148,0.01) 4px)',
-        }} />
-      )}
-
-      {/* Blast badge */}
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: '#06060a', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(rgba(0,217,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,217,255,0.02) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', zIndex: 1 }} />
+      {vectronMode && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,255,148,0.01) 3px, rgba(0,255,148,0.01) 4px)' }} />}
       {vectronMode && blastIds.size > 0 && (
-        <div style={{
-          position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.45)',
-          color: '#FF3B30', padding: '5px 18px', borderRadius: 20,
-          fontSize: 12, fontFamily: '"Courier New", monospace',
-          fontWeight: 700, letterSpacing: 1, zIndex: 10,
-        }}>
-          ◈ {blastIds.size} NODES AFFECTED
-        </div>
+        <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.45)', color: '#FF3B30', padding: '5px 18px', borderRadius: 20, fontSize: 12, fontFamily: '"Courier New", monospace', fontWeight: 700, letterSpacing: 1, zIndex: 10 }}>◈ {blastIds.size} NODES AFFECTED</div>
       )}
-
-      {/* Layout progress */}
       {computing && (
-        <div style={{
-          position: 'absolute', bottom: 42, left: '50%', transform: 'translateX(-50%)',
-          color: 'rgba(0,217,255,0.35)', fontSize: 10,
-          fontFamily: '"Courier New", monospace',
-          pointerEvents: 'none', zIndex: 10, letterSpacing: 2,
-        }}>
-          COMPUTING LAYOUT...
-        </div>
+        <div style={{ position: 'absolute', bottom: 42, left: '50%', transform: 'translateX(-50%)', color: 'rgba(0,217,255,0.35)', fontSize: 10, fontFamily: '"Courier New", monospace', pointerEvents: 'none', zIndex: 10, letterSpacing: 2 }}>COMPUTING LAYOUT...</div>
       )}
-
-      {/* Zoom controls — right edge, vertically centered */}
-      <div style={{
-        position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-        display: 'flex', flexDirection: 'column', gap: 4, zIndex: 10,
-      }}>
-        {([
-          { ch: '+', fn: zoomIn,  title: 'Zoom In'  },
-          { ch: '−', fn: zoomOut, title: 'Zoom Out' },
-          { ch: '⊡', fn: fitAll,  title: 'Fit All'  },
-        ] as const).map(b => (
-          <button key={b.ch} onClick={b.fn} title={b.title} style={{
-            width: 30, height: 30, background: 'transparent',
-            border: '1px solid rgba(0,217,255,0.22)',
-            color: '#00D9FF', borderRadius: 2, cursor: 'pointer',
-            fontSize: 15, fontFamily: 'monospace',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {b.ch}
-          </button>
+      <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 4, zIndex: 10 }}>
+        {([{ ch: '+', fn: zoomIn, title: 'Zoom In' }, { ch: '−', fn: zoomOut, title: 'Zoom Out' }, { ch: '⊡', fn: fitAll, title: 'Fit All' }] as const).map(b => (
+          <button key={b.ch} onClick={b.fn} title={b.title} style={{ width: 30, height: 30, background: 'transparent', border: '1px solid rgba(0,217,255,0.22)', color: '#00D9FF', borderRadius: 2, cursor: 'pointer', fontSize: 15, fontFamily: 'monospace', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.ch}</button>
         ))}
       </div>
-
-      {/* Legend — bottom left */}
-      <div style={{
-        position: 'absolute', bottom: 38, left: 12,
-        display: 'flex', flexDirection: 'column', gap: 3,
-        zIndex: 10, pointerEvents: 'none',
-      }}>
+      <div style={{ position: 'absolute', bottom: 38, left: 12, display: 'flex', flexDirection: 'column', gap: 3, zIndex: 10, pointerEvents: 'none' }}>
         {NODE_LEGEND.map(({ hue, tag }) => (
           <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: hue, boxShadow: `0 0 4px ${hue}88`, flexShrink: 0,
-            }} />
-            <span style={{ color: 'rgba(228,228,237,0.35)', fontSize: 9, fontFamily: 'monospace' }}>
-              {tag}
-            </span>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: hue, boxShadow: `0 0 4px ${hue}88`, flexShrink: 0 }} />
+            <span style={{ color: 'rgba(228,228,237,0.35)', fontSize: 9, fontFamily: 'monospace' }}>{tag}</span>
           </div>
         ))}
         <div style={{ height: 3 }} />
         {EDGE_LEGEND.map(({ hue, tag }) => (
           <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 14, height: 2, background: hue, opacity: 0.75, flexShrink: 0 }} />
-            <span style={{ color: 'rgba(228,228,237,0.35)', fontSize: 9, fontFamily: 'monospace' }}>
-              {tag}
-            </span>
+            <span style={{ color: 'rgba(228,228,237,0.35)', fontSize: 9, fontFamily: 'monospace' }}>{tag}</span>
           </div>
         ))}
       </div>
-
-      {/* Stats footer */}
-      <div style={{
-        position: 'absolute', bottom: 14, left: 12,
-        color: 'rgba(228,228,237,0.18)', fontSize: 10,
-        fontFamily: '"Courier New", monospace',
-        pointerEvents: 'none', zIndex: 10, letterSpacing: 1,
-      }}>
-        {data.nodes.length} nodes · {data.edges.length} edges
-      </div>
+      <div style={{ position: 'absolute', bottom: 14, left: 12, color: 'rgba(228,228,237,0.18)', fontSize: 10, fontFamily: '"Courier New", monospace', pointerEvents: 'none', zIndex: 10, letterSpacing: 1 }}>{data.nodes.length} nodes · {data.edges.length} edges</div>
     </div>
   );
 }

@@ -151,7 +151,7 @@ export default function App() {
                 {/* Right Panel — Metrics + Prompt + AI Query */}
                 {graph && (
                     <aside style={{ width: '360px', flexShrink: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', borderLeft: '1px solid rgba(0,217,255,0.15)', background: '#111827' }}>
-                        <div style={{ flex: 1, overflowY: 'scroll', minHeight: 0 }}>
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                             <MetricsPanel
                                 metrics={blast ?? null}
                                 selectedLabel={selectedNode?.label ?? null}
