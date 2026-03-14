@@ -1,4 +1,4 @@
-import type { GraphData } from '../types/graph';
+import type { DetectedProcess, GraphData } from '../types/graph';
 
 const BASE = '/api';
 
@@ -26,4 +26,19 @@ export async function fetchFile(filePath: string): Promise<string> {
     }
     const data = await res.json();
     return data.content;
+}
+
+export async function detectProcesses(graphData: GraphData): Promise<DetectedProcess[]> {
+    const res = await fetch(`${BASE}/processes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graphData }),
+    });
+
+    const body = await res.json().catch(() => ({ error: res.statusText, processes: [] }));
+    if (!res.ok) {
+        throw new Error(body.error ?? `Server error ${res.status}`);
+    }
+
+    return Array.isArray(body.processes) ? body.processes : [];
 }

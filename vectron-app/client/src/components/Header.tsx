@@ -5,10 +5,12 @@ interface HeaderProps {
     hasGraph: boolean;
     nodeCount: number;
     edgeCount: number;
+    activeTab: 'graph' | 'processes';
+    onTabChange: (tab: 'graph' | 'processes') => void;
 }
 
 export default function Header({
-    vectronMode, onToggleVectron, onUploadNew, hasGraph, nodeCount, edgeCount,
+    vectronMode, onToggleVectron, onUploadNew, hasGraph, nodeCount, edgeCount, activeTab, onTabChange,
 }: HeaderProps) {
     return (
         <header className="header">
@@ -29,6 +31,25 @@ export default function Header({
                     <span className="badge-sep">edges</span>
                 </div>
             )}
+
+            <div className="header-tabs" role="tablist" aria-label="Primary views">
+                <button
+                    className={`header-tab ${activeTab === 'graph' ? 'active' : ''}`}
+                    onClick={() => onTabChange('graph')}
+                    role="tab"
+                    aria-selected={activeTab === 'graph'}
+                >
+                    GRAPH
+                </button>
+                <button
+                    className={`header-tab ${activeTab === 'processes' ? 'active' : ''}`}
+                    onClick={() => onTabChange('processes')}
+                    role="tab"
+                    aria-selected={activeTab === 'processes'}
+                >
+                    PROCESSES
+                </button>
+            </div>
 
             {/* Actions */}
             <div className="header-actions">

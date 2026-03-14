@@ -20,6 +20,7 @@
         "graphology-layout-forceatlas2": "^0.10.1",
         "graphology-layout-noverlap": "^0.4.2",
         "gsap": "^3.14.2",
+        "mermaid": "^11.13.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-syntax-highlighter": "^16.1.1",

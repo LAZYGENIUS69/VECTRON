@@ -28,6 +28,13 @@ export interface GraphData {
     crossModuleEdges: number;
 }
 
+export interface DetectedProcess {
+    name: string;
+    steps: number;
+    explanation: string;
+    mermaid: string;
+}
+
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface BlastMetrics {
