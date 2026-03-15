@@ -1,16 +1,18 @@
 interface HeaderProps {
     vectronMode: boolean;
     onToggleVectron: () => void;
+    fileViewMode: boolean;
+    onToggleFileView: () => void;
     onUploadNew: () => void;
     hasGraph: boolean;
     nodeCount: number;
     edgeCount: number;
-    activeTab: 'graph' | 'processes';
-    onTabChange: (tab: 'graph' | 'processes') => void;
+    activeTab: 'graph' | 'processes' | 'ask-ai' | 'metrics' | 'report';
+    onTabChange: (tab: 'graph' | 'processes' | 'ask-ai' | 'metrics' | 'report') => void;
 }
 
 export default function Header({
-    vectronMode, onToggleVectron, onUploadNew, hasGraph, nodeCount, edgeCount, activeTab, onTabChange,
+    vectronMode, onToggleVectron, fileViewMode, onToggleFileView, onUploadNew, hasGraph, nodeCount, edgeCount, activeTab, onTabChange,
 }: HeaderProps) {
     return (
         <header className="header">
@@ -49,6 +51,30 @@ export default function Header({
                 >
                     PROCESSES
                 </button>
+                <button
+                    className={`header-tab ${activeTab === 'ask-ai' ? 'active' : ''}`}
+                    onClick={() => onTabChange('ask-ai')}
+                    role="tab"
+                    aria-selected={activeTab === 'ask-ai'}
+                >
+                    ASK AI
+                </button>
+                <button
+                    className={`header-tab ${activeTab === 'metrics' ? 'active' : ''}`}
+                    onClick={() => onTabChange('metrics')}
+                    role="tab"
+                    aria-selected={activeTab === 'metrics'}
+                >
+                    METRICS
+                </button>
+                <button
+                    className={`header-tab ${activeTab === 'report' ? 'active' : ''}`}
+                    onClick={() => onTabChange('report')}
+                    role="tab"
+                    aria-selected={activeTab === 'report'}
+                >
+                    REPORT
+                </button>
             </div>
 
             {/* Actions */}
@@ -65,6 +91,15 @@ export default function Header({
                                 style={{ background: vectronMode ? '#F59E0B' : undefined }}
                             />
                             SIMULATION {vectronMode ? 'ON' : 'OFF'}
+                        </button>
+
+                        <button
+                            className={`btn ${fileViewMode ? 'cyan-active' : ''}`}
+                            onClick={onToggleFileView}
+                            title={fileViewMode ? 'Disable automatic code file opening' : 'Enable automatic code file opening'}
+                        >
+                            <span className="btn-dot" />
+                            FILE VIEW {fileViewMode ? 'ON' : 'OFF'}
                         </button>
 
                         <button className="btn" onClick={onUploadNew} title="Upload a new repository">

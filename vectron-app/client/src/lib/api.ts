@@ -28,11 +28,11 @@ export async function fetchFile(filePath: string): Promise<string> {
     return data.content;
 }
 
-export async function detectProcesses(graphData: GraphData): Promise<DetectedProcess[]> {
+export async function detectProcesses(graphData: GraphData, focusNode?: string | null): Promise<DetectedProcess[]> {
     const res = await fetch(`${BASE}/processes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graphData }),
+        body: JSON.stringify({ graphData, focusNode: focusNode || undefined }),
     });
 
     const body = await res.json().catch(() => ({ error: res.statusText, processes: [] }));
@@ -41,4 +41,69 @@ export async function detectProcesses(graphData: GraphData): Promise<DetectedPro
     }
 
     return Array.isArray(body.processes) ? body.processes : [];
+}
+
+export async function queryCodebase(
+    graphData: GraphData,
+    question: string,
+): Promise<{ explanation: string; relevantNodes: string[] }> {
+    const res = await fetch(`${BASE}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graphData, question }),
+    });
+
+    const body = await res.json().catch(() => ({
+        explanation: '',
+        relevantNodes: [],
+        error: res.statusText,
+    }));
+
+    if (!res.ok) {
+        throw new Error(body.error ?? `Server error ${res.status}`);
+    }
+
+    return {
+        explanation: typeof body.explanation === 'string' ? body.explanation : '',
+        relevantNodes: Array.isArray(body.relevantNodes) ? body.relevantNodes : [],
+    };
+}
+
+export async function fetchNodeSummary(
+    graphData: GraphData,
+    nodeId: string,
+    label: string,
+    type: string,
+): Promise<string> {
+    const res = await fetch(`${BASE}/node-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graphData, nodeId, label, type }),
+    });
+
+    const body = await res.json().catch(() => ({
+        summary: '',
+        error: res.statusText,
+    }));
+
+    if (!res.ok) {
+        throw new Error(body.error ?? `Server error ${res.status}`);
+    }
+
+    return typeof body.summary === 'string' ? body.summary : '';
+}
+
+export async function generateReport(graphData: GraphData): Promise<string> {
+    const res = await fetch(`${BASE}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graphData }),
+    });
+
+    const body = await res.json().catch(() => ({ error: res.statusText, report: '' }));
+    if (!res.ok) {
+        throw new Error(body.error ?? `Server error ${res.status}`);
+    }
+
+    return typeof body.report === 'string' ? body.report : '';
 }

@@ -5,12 +5,14 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import AdmZip from "adm-zip";
+import Cerebras from "@cerebras/cerebras_cloud_sdk";
 import Groq from "groq-sdk";
 import { buildGraph, GraphData } from "./graph-builder";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const cerebrasClient = new Cerebras({ apiKey: process.env.CEREBRAS_API_KEY });
 
 const MAX_FILE_BYTES = 500 * 1024;
 const MAX_SOURCE_FILES = 500;
@@ -23,9 +25,109 @@ interface ProcessDefinition {
   mermaid: string;
 }
 
+interface ReportStats {
+  totalFiles: number;
+  totalFunctions: number;
+  mostConnectedComponent: string;
+  mostConnectedDegree: number;
+  deepestDependencyChain: string;
+  deepestDependencyDepth: number;
+}
+
+interface LLMProvider {
+  name: string;
+  isConfigured: boolean;
+  call: () => Promise<string>;
+}
+
+interface LLMCompletionResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+}
+
+function isSmallCodebase(graphData: GraphData): boolean {
+  return graphData.nodes.length < 200;
+}
+
 function hasValidGroqApiKey(): boolean {
   const apiKey = process.env.GROQ_API_KEY || "";
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_actual_key_here";
+}
+
+function hasValidCerebrasApiKey(): boolean {
+  const apiKey = process.env.CEREBRAS_API_KEY || "";
+  return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_key_here";
+}
+
+async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+  const providers: LLMProvider[] = [
+    {
+      name: "Groq",
+      isConfigured: hasValidGroqApiKey(),
+      call: async () => {
+        const res = await groqClient.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system" as const, content: systemPrompt },
+            { role: "user" as const, content: userMessage },
+          ],
+          max_tokens: 2048,
+          temperature: 0.3,
+        });
+        return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+      },
+    },
+    {
+      name: "Cerebras",
+      isConfigured: hasValidCerebrasApiKey(),
+      call: async () => {
+        const res = await cerebrasClient.chat.completions.create({
+          model: "llama3.1-8b",
+          messages: [
+            { role: "system" as const, content: systemPrompt },
+            { role: "user" as const, content: userMessage },
+          ],
+          max_tokens: 2048,
+        });
+        return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+      },
+    },
+  ];
+  const failures: string[] = [];
+
+  for (const provider of providers) {
+    if (!provider.isConfigured) {
+      continue;
+    }
+
+    try {
+      console.log(`[LLM] Trying ${provider.name}...`);
+      const result = (await provider.call()).trim();
+
+      if (!result) {
+        console.warn(`[LLM] ${provider.name} returned an empty response`);
+        failures.push(`${provider.name}: empty response`);
+        continue;
+      }
+
+      console.log(`[LLM] Success with ${provider.name}`);
+      return result;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      failures.push(`${provider.name}: ${message}`);
+      console.warn(`[LLM] ${provider.name} failed: ${message}`);
+      continue;
+    }
+  }
+
+  if (failures.length === 0) {
+    throw new Error("All LLM providers are unavailable");
+  }
+
+  throw new Error(`All LLM providers failed: ${failures.join(" | ")}`);
 }
 
 function buildCompactGraphSummary(graphData: GraphData): string {
@@ -82,7 +184,12 @@ function extractMermaidLabels(mermaid: string): string[] {
   return matches.map((match) => match.slice(1, -1).trim()).filter(Boolean);
 }
 
-function sanitizeProcesses(raw: unknown, allowedLabels: Set<string>): ProcessDefinition[] {
+function sanitizeProcesses(
+  raw: unknown,
+  allowedLabels: Set<string>,
+  minimumSteps: number,
+  focusNode?: string,
+): ProcessDefinition[] {
   if (!Array.isArray(raw)) return [];
 
   return raw
@@ -100,9 +207,11 @@ function sanitizeProcesses(raw: unknown, allowedLabels: Set<string>): ProcessDef
           : 0;
 
       const labels = extractMermaidLabels(mermaid);
-      const hasOnlyKnownLabels = labels.length >= 3 && labels.every((label) => allowedLabels.has(label));
+      const hasOnlyKnownLabels =
+        labels.length >= minimumSteps && labels.every((label) => allowedLabels.has(label));
+      const hasFocusNode = !focusNode || labels.includes(focusNode);
 
-      if (!name || !explanation || !mermaid || steps < 3 || !hasOnlyKnownLabels) {
+      if (!name || !explanation || !mermaid || steps < minimumSteps || !hasOnlyKnownLabels || !hasFocusNode) {
         return null;
       }
 
@@ -111,27 +220,87 @@ function sanitizeProcesses(raw: unknown, allowedLabels: Set<string>): ProcessDef
     .filter((process): process is ProcessDefinition => process !== null);
 }
 
+function computeReportStats(graphData: GraphData): ReportStats {
+  const fileNodes = graphData.nodes.filter((node) => node.type === "file");
+  const functionNodes = graphData.nodes.filter(
+    (node) => node.type === "function" || node.type === "method",
+  );
+
+  const degreeMap = new Map<string, number>();
+  graphData.nodes.forEach((node) => degreeMap.set(node.id, 0));
+  graphData.edges.forEach((edge) => {
+    degreeMap.set(edge.source, (degreeMap.get(edge.source) ?? 0) + 1);
+    degreeMap.set(edge.target, (degreeMap.get(edge.target) ?? 0) + 1);
+  });
+
+  let mostConnectedNode = graphData.nodes[0];
+  let mostConnectedDegree = mostConnectedNode ? degreeMap.get(mostConnectedNode.id) ?? 0 : 0;
+  graphData.nodes.forEach((node) => {
+    const degree = degreeMap.get(node.id) ?? 0;
+    if (!mostConnectedNode || degree > mostConnectedDegree) {
+      mostConnectedNode = node;
+      mostConnectedDegree = degree;
+    }
+  });
+
+  const adjacency = new Map<string, string[]>();
+  graphData.nodes.forEach((node) => adjacency.set(node.id, []));
+  graphData.edges.forEach((edge) => {
+    if (edge.kind === "CALLS" || edge.kind === "IMPORTS" || edge.kind === "DEFINES") {
+      adjacency.get(edge.source)?.push(edge.target);
+    }
+  });
+
+  let deepestStart: string | null = null;
+  let deepestEnd: string | null = null;
+  let deepestDepth = 0;
+
+  graphData.nodes.forEach((startNode) => {
+    const visited = new Set<string>([startNode.id]);
+    const queue: Array<{ id: string; depth: number }> = [{ id: startNode.id, depth: 0 }];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) continue;
+
+      if (current.depth > deepestDepth) {
+        deepestDepth = current.depth;
+        deepestStart = startNode.label;
+        deepestEnd = graphData.nodes.find((node) => node.id === current.id)?.label ?? current.id;
+      }
+
+      const neighbors = adjacency.get(current.id) ?? [];
+      neighbors.forEach((neighbor) => {
+        if (visited.has(neighbor)) return;
+        visited.add(neighbor);
+        queue.push({ id: neighbor, depth: current.depth + 1 });
+      });
+    }
+  });
+
+  return {
+    totalFiles: fileNodes.length,
+    totalFunctions: functionNodes.length,
+    mostConnectedComponent: mostConnectedNode?.label ?? "None",
+    mostConnectedDegree,
+    deepestDependencyChain:
+      deepestStart && deepestEnd
+        ? `${deepestStart} -> ${deepestEnd}`
+        : "No dependency chain detected",
+    deepestDependencyDepth: deepestDepth,
+  };
+}
+
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json({ limit: "50mb" }));
 
 app.post("/api/query", async (req, res) => {
   console.log("Query received:", req.body.question);
-  console.log("Groq key exists:", !!process.env.GROQ_API_KEY);
 
   const { question, graphData } = req.body as { question: string; graphData: GraphData };
 
   if (!question || !graphData) {
     res.status(400).json({ error: "Missing question or graphData" });
-    return;
-  }
-
-  if (!hasValidGroqApiKey()) {
-    console.error("[VECTRON] GROQ_API_KEY is not set in server/.env");
-    res.status(500).json({
-      explanation:
-        "Groq API key is not configured. Please set GROQ_API_KEY in server/.env and restart the server.",
-      relevantNodes: [],
-    });
     return;
   }
 
@@ -165,16 +334,7 @@ You MUST respond with ONLY valid JSON, no markdown, no backticks:
   "relevantNodes": ["nodeId1", "nodeId2", "nodeId3"]
 }`;
 
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `GRAPH DATA:\n${summary}\n\nUSER QUESTION:\n${question}` },
-      ],
-      max_tokens: 1024,
-      temperature: 0.3,
-    });
-    const text = response.choices?.[0]?.message?.content ?? "";
+    const text = await callLLM(systemPrompt, `GRAPH DATA:\n${summary}\n\nUSER QUESTION:\n${question}`);
 
     try {
       const jsonStr = text.replace(/```json\n?|```/g, "").trim();
@@ -191,38 +351,82 @@ You MUST respond with ONLY valid JSON, no markdown, no backticks:
       });
     }
   } catch (err: unknown) {
-    console.error("Groq chat error:", err);
+    console.error("[LLM] Query error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ explanation: `Query failed: ${message}`, relevantNodes: [] });
   }
 });
 
+app.post("/api/node-summary", async (req, res) => {
+  const { graphData, nodeId, label, type } = req.body as {
+    graphData: GraphData;
+    nodeId: string;
+    label: string;
+    type: string;
+  };
+
+  if (!graphData || !nodeId || !label || !type) {
+    res.status(400).json({ error: "Missing graphData, nodeId, label, or type", summary: "" });
+    return;
+  }
+
+  const node = graphData.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    res.status(404).json({ error: "Node not found in graphData", summary: "" });
+    return;
+  }
+
+  const incoming = graphData.edges
+    .filter((edge) => edge.target === nodeId)
+    .map((edge) => graphData.nodes.find((candidate) => candidate.id === edge.source)?.label ?? edge.source);
+  const outgoing = graphData.edges
+    .filter((edge) => edge.source === nodeId)
+    .map((edge) => graphData.nodes.find((candidate) => candidate.id === edge.target)?.label ?? edge.target);
+
+  try {
+    const systemPrompt = `Given this node '${label}' of type '${type}' in a codebase, write exactly one sentence describing what it likely does based on its name and connections.`;
+    const userMessage = `NODE LABEL: ${label}
+NODE TYPE: ${type}
+FILE PATH: ${node.filePath}
+INCOMING CONNECTIONS (${incoming.length}): ${incoming.length > 0 ? incoming.join(", ") : "None"}
+OUTGOING CONNECTIONS (${outgoing.length}): ${outgoing.length > 0 ? outgoing.join(", ") : "None"}
+
+Return exactly one sentence with no markdown and no bullets.`;
+    const summary = await callLLM(systemPrompt, userMessage);
+    const normalized = summary.replace(/\s+/g, " ").trim();
+    const sentence = normalized.split(/(?<=[.!?])\s+/)[0] ?? normalized;
+
+    res.json({ summary: sentence.trim() });
+  } catch (err: unknown) {
+    console.error("[LLM] Node summary error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ error: `Node summary failed: ${message}`, summary: "" });
+  }
+});
+
 app.post("/api/processes", async (req, res) => {
-  const { graphData } = req.body as { graphData: GraphData };
+  const { graphData, focusNode } = req.body as { graphData: GraphData; focusNode?: string };
 
   if (!graphData) {
     res.status(400).json({ error: "Missing graphData" });
     return;
   }
 
-  if (!hasValidGroqApiKey()) {
-    console.error("[VECTRON] GROQ_API_KEY is not set in server/.env");
-    res.status(500).json({
-      error:
-        "Groq API key is not configured. Please set GROQ_API_KEY in server/.env and restart the server.",
-      processes: [],
-    });
-    return;
-  }
-
   try {
     const summary = buildCompactGraphSummary(graphData);
+    const smallCodebase = isSmallCodebase(graphData);
     const allowedLabels = new Set(graphData.nodes.map((node) => node.label));
     const systemPrompt = `You are an expert software architect. You have been given a dependency graph of a real codebase as nodes and edges.
 
 Analyze the graph and detect all meaningful processes - a process is a complete flow from a trigger point (user action, API call, event) through to an output or side effect.
 
 For each process generate a Mermaid flowchart diagram.
+
+If the codebase is small (under 200 nodes), still detect 3-5 processes even if they are simple. A process can be as small as 2-3 steps.
+For small codebases prioritize: the main data flow, the render cycle, and any user interaction handler.
+Never return an empty processes array - always return at least 3 processes.
+${focusNode ? `Focus specifically on processes that involve the node '${focusNode}'.
+Only return processes where this node appears as a step.` : ""}
 
 You MUST respond with ONLY valid JSON, no markdown, no backticks:
 {
@@ -240,33 +444,93 @@ Rules:
 - Detect 5-10 most important processes only
 - Only reference nodes that exist in the provided graph
 - Mermaid syntax must be valid - use graph TD format
-- Each process must have at least 3 steps
+- Each process must have at least ${smallCodebase ? "2" : "3"} steps
 - Process names must be human readable like 'File Upload Flow'
 - Never invent nodes that dont exist in the graph`;
 
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `GRAPH DATA:\n${summary}` },
-      ],
-      max_tokens: 1800,
-      temperature: 0.2,
-    });
-    const text = response.choices?.[0]?.message?.content ?? "";
+    const text = await callLLM(systemPrompt, `GRAPH DATA:\n${summary}`);
 
     try {
       const jsonStr = text.replace(/```json\n?|```/g, "").trim();
       const parsed = JSON.parse(jsonStr);
-      res.json({ processes: sanitizeProcesses(parsed.processes, allowedLabels) });
+      const processes = sanitizeProcesses(
+        parsed.processes,
+        allowedLabels,
+        smallCodebase ? 2 : 3,
+        focusNode,
+      );
+      console.log("Processes detected:", processes.length);
+      res.json({ processes });
     } catch (parseErr) {
       console.error("[VECTRON] Process Parse error:", parseErr, "Raw text:", text);
       res.json({ processes: [] });
     }
   } catch (err: unknown) {
-    console.error("Groq process error:", err);
+    console.error("[LLM] Process detection error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: `Process detection failed: ${message}`, processes: [] });
+  }
+});
+
+app.post("/api/report", async (req, res) => {
+  const { graphData } = req.body as { graphData: GraphData };
+
+  if (!graphData) {
+    res.status(400).json({ error: "Missing graphData" });
+    return;
+  }
+
+  try {
+    const summary = buildCompactGraphSummary(graphData);
+    const stats = computeReportStats(graphData);
+    const systemPrompt = `You are a senior software architect. Analyze this codebase knowledge graph and generate a comprehensive intelligence report.
+
+Respond in clean markdown format with these exact sections:
+
+# Codebase Intelligence Report
+
+## Executive Summary
+2-3 sentences describing what this project does and its overall architecture.
+
+## Architecture Overview
+Describe the main architectural pattern, key layers, and how they interact.
+Reference specific files and their roles.
+
+## Component Breakdown
+For each major file/component: what it does, what it depends on,
+what depends on it.
+
+## Dependency Hotspots
+Top 5 most connected nodes - these are the riskiest to change.
+Format as: **filename** - N connections - why it matters
+
+## Risk Assessment
+Which parts of the codebase are most fragile? What would cause
+the most damage if changed? Be specific with file names.
+
+## Onboarding Guide
+If a new developer joined today, what 5 files should they read first
+and in what order? Why?
+
+## Quick Stats
+- Total files parsed
+- Total functions detected
+- Most connected component
+- Deepest dependency chain
+
+Only reference nodes that actually exist in the provided graph.
+Be specific, technical, and useful. Write like a senior engineer.`;
+
+    const text = await callLLM(
+      systemPrompt,
+      `GRAPH DATA:\n${summary}\n\nEXACT STATS:\n- Total files parsed: ${stats.totalFiles}\n- Total functions detected: ${stats.totalFunctions}\n- Most connected component: ${stats.mostConnectedComponent} (${stats.mostConnectedDegree} connections)\n- Deepest dependency chain: ${stats.deepestDependencyChain} (${stats.deepestDependencyDepth} hops)`,
+    );
+
+    res.json({ report: text.trim() });
+  } catch (err: unknown) {
+    console.error("Report generation error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ error: `Report generation failed: ${message}`, report: "" });
   }
 });
 

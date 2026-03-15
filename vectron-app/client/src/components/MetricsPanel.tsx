@@ -7,6 +7,7 @@ interface MetricsPanelProps {
     totalNodes: number;
     totalEdges: number;
     crossModuleEdgesTotal: number;
+    onTraceProcesses?: () => void;
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -19,6 +20,7 @@ const RISK_COLORS: Record<string, string> = {
 export default function MetricsPanel({
     metrics, selectedLabel, vectronMode,
     totalNodes, totalEdges, crossModuleEdgesTotal,
+    onTraceProcesses,
 }: MetricsPanelProps) {
 
     // Graph overview — always visible when graph is loaded
@@ -92,6 +94,15 @@ export default function MetricsPanel({
                     <div className="target-badge">
                         <span style={{ opacity: 0.6 }}>Target:</span> {selectedLabel}
                     </div>
+                )}
+
+                {selectedLabel && onTraceProcesses && (
+                    <button
+                        className="trace-process-btn"
+                        onClick={onTraceProcesses}
+                    >
+                        [ Trace Processes -&gt; ]
+                    </button>
                 )}
 
                 <div className="metrics-grid">

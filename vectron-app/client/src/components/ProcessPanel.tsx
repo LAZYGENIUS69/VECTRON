@@ -6,6 +6,9 @@ import type { DetectedProcess, GraphData } from '../types/graph';
 mermaid.initialize({
     startOnLoad: false,
     theme: 'dark',
+    flowchart: {
+        htmlLabels: false,
+    },
     themeVariables: {
         primaryColor: '#00D9FF',
         primaryTextColor: '#ffffff',
@@ -45,46 +48,129 @@ const MermaidChart = ({ chart }: { chart: string }) => {
 
 interface ProcessPanelProps {
     graph: GraphData;
+    selectedNode?: string | null;
 }
 
-export default function ProcessPanel({ graph }: ProcessPanelProps) {
+export default function ProcessPanel({ graph, selectedNode = null }: ProcessPanelProps) {
     const [processes, setProcesses] = useState<DetectedProcess[]>([]);
-    const [selectedIndex, setSelectedIndex] = useState(0);
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
+    const chartRef = useRef<HTMLDivElement>(null);
 
-    const selectedProcess = processes[selectedIndex] ?? null;
+    const selectedProcess = selectedIndex === null ? null : processes[selectedIndex] ?? null;
 
-    const handleDetectProcesses = async () => {
+    useEffect(() => {
+        setCopied(false);
+    }, [selectedIndex]);
+
+    const runDetection = async (focusNode?: string | null) => {
         setLoading(true);
         setError(null);
 
         try {
-            const detected = await detectProcesses(graph);
+            const detected = await detectProcesses(graph, focusNode);
             setProcesses(detected);
-            setSelectedIndex(0);
+            setSelectedIndex(detected.length > 0 ? 0 : null);
             if (detected.length === 0) {
                 setError('No valid processes were detected for this graph.');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Process detection failed.');
             setProcesses([]);
-            setSelectedIndex(0);
+            setSelectedIndex(null);
         } finally {
             setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedNode) {
+            runDetection(selectedNode);
+        }
+    }, [graph, selectedNode]);
+
+    const sidebarHeader = selectedNode
+        ? `Processes involving: ${selectedNode}`
+        : 'DETECTED PROCESSES';
+
+    const handleCopyMermaid = async () => {
+        if (!selectedProcess) return;
+
+        try {
+            await navigator.clipboard.writeText(selectedProcess.mermaid);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch (err) {
+            setError('Could not copy Mermaid syntax to the clipboard.');
+        }
+    };
+
+    const handleDownloadPng = async () => {
+        if (!selectedProcess || !chartRef.current) return;
+
+        const svgElement = chartRef.current.querySelector('svg');
+        if (!svgElement) {
+            setError('Could not find a rendered Mermaid chart to export.');
+            return;
+        }
+
+        try {
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+
+            await new Promise<void>((resolve, reject) => {
+                image.onload = () => resolve();
+                image.onerror = () => reject(new Error('Could not load Mermaid SVG for export.'));
+                image.src = url;
+            });
+
+            const viewBox = svgElement.viewBox.baseVal;
+            const width = viewBox?.width || svgElement.clientWidth || 1200;
+            const height = viewBox?.height || svgElement.clientHeight || 800;
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+
+            const context = canvas.getContext('2d');
+            if (!context) {
+                throw new Error('Canvas export is not available in this browser.');
+            }
+
+            context.fillStyle = '#0d1117';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, width, height);
+
+            const link = document.createElement('a');
+            const safeName = selectedProcess.name.replace(/[<>:"/\\|?*]+/g, '-');
+            link.href = canvas.toDataURL('image/png');
+            link.download = `${safeName}.png`;
+            link.click();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Could not export Mermaid diagram as PNG.');
         }
     };
 
     return (
         <div className="process-panel">
             <aside className="process-sidebar">
-                <div className="process-sidebar-header">DETECTED PROCESSES</div>
+                <div className={selectedNode ? 'process-sidebar-focus' : 'process-sidebar-header'}>
+                    {sidebarHeader}
+                </div>
                 <button
                     className="process-detect-btn"
-                    onClick={handleDetectProcesses}
+                    onClick={() => runDetection(selectedNode)}
                     disabled={loading}
                 >
-                    {loading ? 'Detecting...' : 'Detect All Processes'}
+                    {loading
+                        ? 'Detecting...'
+                        : selectedNode
+                            ? 'Refresh Focused Processes'
+                            : 'Detect All Processes'}
                 </button>
 
                 <div className="process-list">
@@ -92,7 +178,9 @@ export default function ProcessPanel({ graph }: ProcessPanelProps) {
 
                     {!error && processes.length === 0 && !loading && (
                         <div className="process-empty">
-                            Run detection to generate process flow diagrams from the current graph.
+                            {selectedNode
+                                ? 'Processes for the selected node will appear here automatically.'
+                                : 'Run detection to generate process flow diagrams from the current graph.'}
                         </div>
                     )}
 
@@ -104,6 +192,9 @@ export default function ProcessPanel({ graph }: ProcessPanelProps) {
                         >
                             <span className="process-item-name">{process.name}</span>
                             <span className="process-item-meta">{process.steps} steps</span>
+                            {selectedNode && (
+                                <span className="process-node-highlight">{selectedNode}</span>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -112,6 +203,9 @@ export default function ProcessPanel({ graph }: ProcessPanelProps) {
             <section className="process-main">
                 {selectedProcess ? (
                     <>
+                        <button className="back-nav-btn" onClick={() => setSelectedIndex(null)}>
+                            &larr; All Processes
+                        </button>
                         <div className="process-main-header">
                             <div>
                                 <h2>{selectedProcess.name}</h2>
@@ -119,7 +213,17 @@ export default function ProcessPanel({ graph }: ProcessPanelProps) {
                             </div>
                         </div>
                         <div className="process-chart-wrap">
-                            <MermaidChart chart={selectedProcess.mermaid} />
+                            <div className="process-chart-actions">
+                                <button className="process-chart-btn" onClick={handleCopyMermaid}>
+                                    {copied ? 'Copied!' : 'Copy Mermaid'}
+                                </button>
+                                <button className="process-chart-btn" onClick={handleDownloadPng}>
+                                    Download PNG
+                                </button>
+                            </div>
+                            <div ref={chartRef}>
+                                <MermaidChart chart={selectedProcess.mermaid} />
+                            </div>
                         </div>
                         <div className="process-explanation">
                             {selectedProcess.explanation}

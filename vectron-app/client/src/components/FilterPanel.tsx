@@ -5,6 +5,7 @@ interface FilterPanelProps {
     setNodeFilters: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
     edgeFilters: Record<string, boolean>;
     setEdgeFilters: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    hideHeader?: boolean;
 }
 
 const NODE_TYPES = [
@@ -24,49 +25,54 @@ const EDGE_TYPES = [
 ];
 
 const TerminalSwitch = ({ active, onClick, color }: { active: boolean, onClick: () => void, color?: string }) => (
-    <div 
+    <div
+        className="filter-switch"
         onClick={onClick}
         style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '6px',
             cursor: 'pointer',
             userSelect: 'none',
-            padding: '4px 0',
-            fontFamily: 'var(--mono)',
-            fontSize: '11px',
-            transition: 'opacity 0.2s',
-            opacity: active ? 1 : 0.4
+            padding: 0,
+            fontFamily: "'Segoe UI', system-ui, sans-serif",
+            fontSize: '11px'
         }}
     >
-        <div style={{
-            width: '32px',
-            height: '14px',
-            background: active ? 'rgba(0, 217, 255, 0.15)' : '#1F2937',
-            border: `1px solid ${active ? '#00D9FF' : '#374151'}`,
-            borderRadius: '2px',
-            position: 'relative',
-            transition: 'all 0.2s'
-        }}>
-            <div style={{
-                position: 'absolute',
-                top: '2px',
-                left: active ? '18px' : '2px',
-                width: '8px',
-                height: '8px',
-                background: active ? '#00D9FF' : '#64748B',
-                boxShadow: active ? '0 0 8px #00D9FF' : 'none',
+        <div
+            className="filter-switch-track"
+            style={{
+                width: '28px',
+                height: '14px',
+                background: active ? '#0078d4' : '#3c3c3c',
+                border: active ? 'none' : '1px solid #555555',
+                borderRadius: '7px',
+                position: 'relative',
                 transition: 'all 0.2s'
-            }} />
+            }}
+        >
+            <div
+                className="filter-switch-thumb"
+                style={{
+                    position: 'absolute',
+                    top: '2px',
+                    left: active ? '16px' : '2px',
+                    width: '10px',
+                    height: '10px',
+                    background: '#ffffff',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s'
+                }}
+            />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {color && <div style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />}
-            <span style={{ color: active ? '#E4E4ED' : '#64748B' }}>{active ? '[ON]' : '[OFF]'}</span>
+        <div className="filter-switch-meta" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {color && <div className="filter-color-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />}
+            <span className="filter-switch-state" style={{ color: '#858585', fontSize: '10px' }}>{active ? '[ON]' : '[OFF]'}</span>
         </div>
     </div>
 );
 
-export default function FilterPanel({ nodeFilters, setNodeFilters, edgeFilters, setEdgeFilters }: FilterPanelProps) {
+export default function FilterPanel({ nodeFilters, setNodeFilters, edgeFilters, setEdgeFilters, hideHeader = false }: FilterPanelProps) {
     const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     const toggleNode = (id: string) => {
@@ -78,71 +84,92 @@ export default function FilterPanel({ nodeFilters, setNodeFilters, edgeFilters, 
     };
 
     return (
-        <div style={{ 
-            borderTop: '1px solid var(--border)', 
-            background: 'var(--surface)',
-            display: 'flex',
-            flexDirection: 'column',
-            flexShrink: 0
-        }}>
-            <div 
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                style={{
-                    padding: '10px 16px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    letterSpacing: '0.15em',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    background: 'rgba(255,255,255,0.02)'
-                }}
-            >
-                <span>FILTERS</span>
-                <span style={{ fontSize: '12px' }}>{isCollapsed ? '+' : '−'}</span>
-            </div>
+        <div
+            className="filter-panel"
+            style={{
+                borderTop: hideHeader ? 'none' : '1px solid #2d2d2d',
+                background: '#1e1e1e',
+                display: 'flex',
+                flexDirection: 'column',
+                flexShrink: 0
+            }}
+        >
+            {!hideHeader && (
+                <div
+                    className="filter-panel-header"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    style={{
+                        padding: '8px 12px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        color: '#bbbbbb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        background: '#1e1e1e',
+                        borderBottom: '1px solid #2d2d2d'
+                    }}
+                >
+                    <span>FILTERS</span>
+                    <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#858585' }}>{isCollapsed ? '\u25B8' : '\u25BE'}</span>
+                </div>
+            )}
 
-            {!isCollapsed && (
-                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {(!isCollapsed || hideHeader) && (
+                <div className="filter-panel-content" style={{ padding: '6px 0 8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div>
-                        <div style={{ 
-                            fontSize: '9px', 
-                            color: '#00D9FF', 
-                            marginBottom: '10px', 
-                            fontWeight: 600, 
-                            letterSpacing: '0.1em' 
-                        }}>NODE TYPES</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div
+                            className="filter-group-title"
+                            style={{
+                                fontSize: '11px',
+                                color: '#858585',
+                                marginBottom: '2px',
+                                fontWeight: 600,
+                                letterSpacing: '0.08em',
+                                padding: '10px 12px 4px'
+                            }}
+                        >
+                            NODE TYPES
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                             {NODE_TYPES.map(type => (
-                                <div key={type.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--mono)' }}>{type.label}</span>
-                                    <TerminalSwitch 
-                                        active={!!nodeFilters[type.id]} 
+                                <div key={type.id} className="filter-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 12px', height: '24px' }}>
+                                    <div className="filter-label-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div className="filter-color-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: type.color, flexShrink: 0 }} />
+                                        <span className="filter-label" style={{ fontSize: '12px', color: '#cccccc', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>{type.label}</span>
+                                    </div>
+                                    <TerminalSwitch
+                                        active={!!nodeFilters[type.id]}
                                         onClick={() => toggleNode(type.id)}
-                                        color={type.color}
                                     />
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
-                        <div style={{ 
-                            fontSize: '9px', 
-                            color: '#00D9FF', 
-                            marginBottom: '10px', 
-                            fontWeight: 600, 
-                            letterSpacing: '0.1em' 
-                        }}>EDGE TYPES</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div className="filter-group-divider" style={{ borderTop: '1px solid #2d2d2d', paddingTop: '6px' }}>
+                        <div
+                            className="filter-group-title"
+                            style={{
+                                fontSize: '11px',
+                                color: '#858585',
+                                marginBottom: '2px',
+                                fontWeight: 600,
+                                letterSpacing: '0.08em',
+                                padding: '10px 12px 4px'
+                            }}
+                        >
+                            EDGE TYPES
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                             {EDGE_TYPES.map(type => (
-                                <div key={type.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--mono)' }}>{type.label}</span>
-                                    <TerminalSwitch 
-                                        active={!!edgeFilters[type.id]} 
+                                <div key={type.id} className="filter-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 12px', height: '24px' }}>
+                                    <span className="filter-label" style={{ fontSize: '12px', color: '#cccccc', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>{type.label}</span>
+                                    <TerminalSwitch
+                                        active={!!edgeFilters[type.id]}
                                         onClick={() => toggleEdge(type.id)}
                                     />
                                 </div>

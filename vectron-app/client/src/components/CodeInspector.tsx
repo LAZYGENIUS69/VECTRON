@@ -104,19 +104,30 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
                     background: 'rgba(0, 217, 255, 0.05)',
                     borderBottom: '1px solid rgba(0, 217, 255, 0.1)',
                 }}>
-                    {/* Filename */}
-                    <span style={{
-                        fontFamily: 'JetBrains Mono, monospace',
-                        fontSize: 13,
-                        color: '#00d9ff',
-                        fontWeight: 500,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: 4,
+                        minWidth: 0,
                         maxWidth: 'calc(100% - 48px)',
                     }}>
-                        {filename ?? 'Code Inspector'}
-                    </span>
+                        <button className="back-nav-btn" onClick={onClose}>
+                            &larr; Close File
+                        </button>
+                        <span style={{
+                            fontFamily: 'JetBrains Mono, monospace',
+                            fontSize: 13,
+                            color: '#00d9ff',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '100%',
+                        }}>
+                            {filename ?? 'Code Inspector'}
+                        </span>
+                    </div>
 
                     {/* Close button */}
                     <button

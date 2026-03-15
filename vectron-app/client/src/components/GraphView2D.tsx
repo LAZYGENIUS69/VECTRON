@@ -161,18 +161,24 @@ function computeNodeMass(kind: string, totalNodes: number): number {
 interface Props {
   data:           GraphData;
   vectronMode:    boolean;
+  fileViewMode:   boolean;
   blastIds:       Set<string>;
   depthMap:       Map<string, number>;
   selectedId:     string | null;
   focusedFileId?: string | null;
   onNodeClick:    (id: string) => void;
+  onFileView:     (id: string) => void;
   nodeFilters:    Record<string, boolean>;
   edgeFilters:    Record<string, boolean>;
   queryIds:       Set<string>;
+  interactive?:   boolean;
+  showControls?:  boolean;
+  showLegend?:    boolean;
+  showStats?:     boolean;
 }
 
 export default function GraphView2D({
-  data, vectronMode, blastIds, depthMap, selectedId, focusedFileId, onNodeClick, nodeFilters, edgeFilters, queryIds,
+  data, vectronMode, fileViewMode, blastIds, depthMap, selectedId, focusedFileId, onNodeClick, onFileView, nodeFilters, edgeFilters, queryIds, interactive = true, showControls = true, showLegend = true, showStats = true,
 }: Props) {
 
   /* ─── refs ─────────────────────────────────────────────────────── */
@@ -188,15 +194,21 @@ export default function GraphView2D({
   const depthRef  = useRef(depthMap);
   const selRef    = useRef(selectedId);
   const clickRef  = useRef(onNodeClick);
+  const fileViewModeRef = useRef(fileViewMode);
+  const fileViewRef = useRef(onFileView);
+  const interactiveRef = useRef(interactive);
   const nFilterRef = useRef(nodeFilters);
   const eFilterRef = useRef(edgeFilters);
   const queryRef  = useRef(queryIds);
 
   useEffect(() => { vModeRef.current = vectronMode; }, [vectronMode]);
+  useEffect(() => { fileViewModeRef.current = fileViewMode; }, [fileViewMode]);
+  useEffect(() => { interactiveRef.current = interactive; }, [interactive]);
   useEffect(() => { blastRef.current = blastIds;     }, [blastIds]);
   useEffect(() => { depthRef.current = depthMap;     }, [depthMap]);
   useEffect(() => { selRef.current   = selectedId;   }, [selectedId]);
   useEffect(() => { clickRef.current = onNodeClick;  }, [onNodeClick]);
+  useEffect(() => { fileViewRef.current = onFileView; }, [onFileView]);
   useEffect(() => { nFilterRef.current = nodeFilters; }, [nodeFilters]);
   useEffect(() => { eFilterRef.current = edgeFilters; }, [edgeFilters]);
   useEffect(() => { queryRef.current = queryIds;     }, [queryIds]);
@@ -520,9 +532,20 @@ export default function GraphView2D({
     sigmaRef.current = sigma;
     setTimeout(() => sigma.refresh(), 100);
 
-    sigma.on('clickNode',  ({ node }) => clickRef.current(node));
-    sigma.on('clickStage', ()         => clickRef.current(''));
-    sigma.on('enterNode',  ()         => { container.style.cursor = 'pointer'; });
+    sigma.on('clickNode',  ({ node }) => {
+      if (!interactiveRef.current) return;
+      clickRef.current(node);
+      if (fileViewModeRef.current) {
+        fileViewRef.current(node);
+      }
+    });
+    sigma.on('clickStage', ()         => {
+      if (!interactiveRef.current) return;
+      clickRef.current('');
+    });
+    sigma.on('enterNode',  ()         => {
+      container.style.cursor = interactiveRef.current ? 'pointer' : 'default';
+    });
     sigma.on('leaveNode',  ()         => { container.style.cursor = 'default'; });
 
     const inferred = forceAtlas2.inferSettings(graph);
