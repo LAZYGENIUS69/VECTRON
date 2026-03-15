@@ -40,6 +40,17 @@ Risk scores, dependency hotspots, node type distribution, top 10 most connected 
 ### 🔀 Process Flow Detection
 Automatically detects all execution flows in the codebase and generates Mermaid flowcharts for each one. Click any process to see the complete call chain visualized.
 
+### 🔍 Node Intelligence
+Click any node to instantly see its complete intelligence profile:
+- **Risk Score** — calculated from connection density
+- **Callers & Callees** — exact count of incoming and outgoing dependencies  
+- **Depends On** — direct dependencies as visual pills
+- **Called By** — everything that depends on this node
+- **AI Summary** — one-line AI description of what the node does
+
+### 🔗 Process Tracing
+Select any two nodes and VECTRON traces the exact execution path between them through the dependency graph. See how data flows from a user action all the way through to the output — every hop, every function call, every file transition visualized as a Mermaid flowchart.
+
 ### 📄 Codebase Intelligence Report
 One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by Groq + Cerebras fallback.
 
