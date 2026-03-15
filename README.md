@@ -154,9 +154,9 @@ ZIP Upload → Babel AST Parser → Graph Builder → GraphData JSON
 
 ---
 
-## Built for AgentathonX 2026
+## Built for DSOC 2026
 
-VECTRON was built in 72 hours for the AgentathonX 2026 Gen AI Hackathon.
+VECTRON was built in 72 hours for the DSOC 2026 Gen AI Hackathon.
 
 **The vision:** Every AI coding assistant should have a dependency map of your codebase before it touches a single line of code. VECTRON makes that possible.
 
