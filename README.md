@@ -136,20 +136,36 @@ Get free API keys:
 
 ## Architecture
 
-```
-ZIP Upload → Babel AST Parser → Graph Builder → GraphData JSON
-                                                      ↓
-                                              Sigma.js Renderer
-                                                      ↓
-                                    ForceAtlas2 Force-Directed Layout
-                                                      ↓
-                              ┌───────────────────────┴──────────────────────┐
-                              │                                               │
-                         Blast Radius                                   MCP Server
-                       BFS Simulation                                  (port 3002)
-                              │                                               │
-                         Risk Scoring                            Claude Code / Cursor
-                                                                    Antigravity
+```mermaid
+graph TD
+    A[🗂️ ZIP Upload] --> B[Babel AST Parser]
+    B --> C[Graph Builder]
+    C --> D[(Graph Store\nIn Memory)]
+
+    D --> E[Sigma.js Renderer]
+    E --> F[ForceAtlas2 Layout]
+    F --> G[🔴 Interactive Graph]
+
+    D --> H[Blast Radius BFS]
+    H --> I[Risk Scoring]
+    I --> G
+
+    D --> J[Groq LLM\nLlama 3.3 70B]
+    J --> K[AI Query]
+    J --> L[Process Detection]
+    J --> M[Intelligence Report]
+    K --> G
+
+    D --> N[MCP Server\nPort 3002]
+    N --> O[Claude Code]
+    N --> P[Cursor]
+    N --> Q[Antigravity]
+
+    style A fill:#1a1a2e,stroke:#00D9FF,color:#fff
+    style G fill:#1a1a2e,stroke:#FF2D55,color:#fff
+    style D fill:#1a1a2e,stroke:#00D9FF,color:#fff
+    style N fill:#1a1a2e,stroke:#7B61FF,color:#fff
+    style J fill:#1a1a2e,stroke:#FF9F0A,color:#fff
 ```
 
 ---
