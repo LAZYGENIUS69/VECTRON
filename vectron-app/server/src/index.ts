@@ -295,6 +295,10 @@ function computeReportStats(graphData: GraphData): ReportStats {
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json({ limit: "50mb" }));
 
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 app.post("/api/query", async (req, res) => {
   console.log("Query received:", req.body.question);
 
@@ -626,10 +630,6 @@ app.get("/api/file", (req, res) => {
   }
 
   res.json({ path: filePath, content });
-});
-
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "VECTRON Server" });
 });
 
 app.use(express.static(path.join(__dirname, "../../client/dist")));
