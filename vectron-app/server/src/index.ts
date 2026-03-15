@@ -638,5 +638,5 @@ app.get("*", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`VECTRON server listening on http://localhost:${PORT}`);
+  console.log(`VECTRON server listening on port ${PORT}`);
 });
