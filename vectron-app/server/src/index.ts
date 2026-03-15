@@ -9,6 +9,8 @@ import AdmZip from "adm-zip";
 import Cerebras from "@cerebras/cerebras_cloud_sdk";
 import Groq from "groq-sdk";
 import { buildGraph, GraphData } from "./graph-builder";
+import { setGraph } from "./graph-store";
+import { startMCPServer } from "./mcp-server";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -63,7 +65,7 @@ function hasValidCerebrasApiKey(): boolean {
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_key_here";
 }
 
-async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
   const providers: LLMProvider[] = [
     {
       name: "Groq",
@@ -607,8 +609,9 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
       return;
     }
 
-    const graph = buildGraph(sourceFiles);
-    res.json(graph);
+    const graphData = buildGraph(sourceFiles);
+    setGraph(graphData);
+    res.json(graphData);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[VECTRON] Upload error:", message);
@@ -640,3 +643,5 @@ app.get("*", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`VECTRON server listening on port ${PORT}`);
 });
+
+startMCPServer();
