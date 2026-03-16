@@ -8,6 +8,8 @@ import multer from "multer";
 import AdmZip from "adm-zip";
 import Cerebras from "@cerebras/cerebras_cloud_sdk";
 import Groq from "groq-sdk";
+import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { buildGraph, GraphData } from "./graph-builder";
 import { setGraph } from "./graph-store";
 import { startMCPServer } from "./mcp-server";
@@ -43,6 +45,22 @@ interface LLMProvider {
   call: () => Promise<string>;
 }
 
+type LLMProviderKey = "auto" | "openai" | "anthropic" | "groq" | "cerebras" | "custom";
+
+interface LLMConfigPayload {
+  provider: string;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+}
+
+interface CustomLLMConfig {
+  provider: Exclude<LLMProviderKey, "auto">;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+}
+
 interface LLMCompletionResponse {
   choices?: Array<{
     message?: {
@@ -63,6 +81,59 @@ function hasValidGroqApiKey(): boolean {
 function hasValidCerebrasApiKey(): boolean {
   const apiKey = process.env.CEREBRAS_API_KEY || "";
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_key_here";
+}
+
+function isLLMProviderKey(value: string): value is LLMProviderKey {
+  return ["auto", "openai", "anthropic", "groq", "cerebras", "custom"].includes(value);
+}
+
+function formatProviderName(provider: string): string {
+  const labels: Record<string, string> = {
+    auto: "Auto",
+    openai: "OpenAI",
+    anthropic: "Anthropic",
+    groq: "Groq",
+    cerebras: "Cerebras",
+    custom: "Custom",
+  };
+
+  return labels[provider] ?? provider;
+}
+
+function normalizeLLMConfig(config?: Partial<LLMConfigPayload> | null): CustomLLMConfig | null {
+  const providerValue = (config?.provider ?? "").trim().toLowerCase();
+  if (!isLLMProviderKey(providerValue) || providerValue === "auto") {
+    return null;
+  }
+
+  const apiKey = config?.apiKey?.trim() ?? "";
+  if (!apiKey) {
+    return null;
+  }
+
+  const defaultModels: Record<Exclude<LLMProviderKey, "auto" | "custom">, string> = {
+    openai: "gpt-4o",
+    anthropic: "claude-sonnet-4-5",
+    groq: "llama-3.3-70b-versatile",
+    cerebras: "llama3.1-8b",
+  };
+
+  const incomingModel = config?.model?.trim() ?? "";
+  const model =
+    providerValue === "custom"
+      ? incomingModel
+      : incomingModel || defaultModels[providerValue];
+
+  if (!model) {
+    return null;
+  }
+
+  return {
+    provider: providerValue,
+    apiKey,
+    model,
+    baseUrl: config?.baseUrl?.trim() || undefined,
+  };
 }
 
 export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
@@ -131,6 +202,67 @@ export async function callLLM(systemPrompt: string, userMessage: string): Promis
   }
 
   throw new Error(`All LLM providers failed: ${failures.join(" | ")}`);
+}
+
+async function callLLMWithConfig(
+  systemPrompt: string,
+  userMessage: string,
+  config: CustomLLMConfig,
+): Promise<string> {
+  if (config.provider === "openai" || config.provider === "custom") {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl || "https://api.openai.com/v1",
+    });
+    const res = await client.chat.completions.create({
+      model: config.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 1024,
+    });
+    return res.choices[0]?.message?.content ?? "";
+  }
+
+  if (config.provider === "anthropic") {
+    const client = new Anthropic({ apiKey: config.apiKey });
+    const res = await client.messages.create({
+      model: config.model,
+      max_tokens: 1024,
+      messages: [{ role: "user", content: userMessage }],
+      system: systemPrompt,
+    });
+    return ((res.content[0] as { text?: string } | undefined)?.text ?? "");
+  }
+
+  if (config.provider === "groq") {
+    const client = new Groq({ apiKey: config.apiKey });
+    const res = await client.chat.completions.create({
+      model: config.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 1024,
+    });
+    return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+  }
+
+  if (config.provider === "cerebras") {
+    const client = new Cerebras({ apiKey: config.apiKey });
+    const res = await client.chat.completions.create({
+      model: config.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 1024,
+    });
+    return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+  }
+
+  throw new Error(`Unknown provider: ${config.provider}`);
 }
 
 function buildCompactGraphSummary(graphData: GraphData): string {
@@ -304,7 +436,11 @@ app.get("/health", (_req, res) => {
 app.post("/api/query", async (req, res) => {
   console.log("Query received:", req.body.question);
 
-  const { question, graphData } = req.body as { question: string; graphData: GraphData };
+  const { question, graphData, llmConfig } = req.body as {
+    question: string;
+    graphData: GraphData;
+    llmConfig?: LLMConfigPayload;
+  };
 
   if (!question || !graphData) {
     res.status(400).json({ error: "Missing question or graphData" });
@@ -341,7 +477,24 @@ You MUST respond with ONLY valid JSON, no markdown, no backticks:
   "relevantNodes": ["nodeId1", "nodeId2", "nodeId3"]
 }`;
 
-    const text = await callLLM(systemPrompt, `GRAPH DATA:\n${summary}\n\nUSER QUESTION:\n${question}`);
+    const userMessage = `GRAPH DATA:\n${summary}\n\nUSER QUESTION:\n${question}`;
+    const customConfig = normalizeLLMConfig(llmConfig);
+
+    let text: string;
+    if (customConfig) {
+      try {
+        text = await callLLMWithConfig(systemPrompt, userMessage, customConfig);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        res.json({
+          explanation: `Your ${formatProviderName(customConfig.provider)} key returned an error: ${message}`,
+          relevantNodes: [],
+        });
+        return;
+      }
+    } else {
+      text = await callLLM(systemPrompt, userMessage);
+    }
 
     try {
       const jsonStr = text.replace(/```json\n?|```/g, "").trim();

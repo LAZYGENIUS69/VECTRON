@@ -1,4 +1,4 @@
-import type { DetectedProcess, GraphData } from '../types/graph';
+import type { DetectedProcess, GraphData, LLMConfig } from '../types/graph';
 
 const BASE = '/api';
 
@@ -46,11 +46,12 @@ export async function detectProcesses(graphData: GraphData, focusNode?: string |
 export async function queryCodebase(
     graphData: GraphData,
     question: string,
+    llmConfig?: LLMConfig,
 ): Promise<{ explanation: string; relevantNodes: string[] }> {
     const res = await fetch(`${BASE}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graphData, question }),
+        body: JSON.stringify({ graphData, question, llmConfig }),
     });
 
     const body = await res.json().catch(() => ({

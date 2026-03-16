@@ -35,6 +35,15 @@ export interface DetectedProcess {
     mermaid: string;
 }
 
+export type LLMProvider = 'auto' | 'openai' | 'anthropic' | 'groq' | 'cerebras' | 'custom';
+
+export interface LLMConfig {
+    provider: LLMProvider;
+    apiKey: string;
+    model: string;
+    baseUrl?: string;
+}
+
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface BlastMetrics {

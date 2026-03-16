@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphData } from '../types/graph';
+import type { GraphData, LLMConfig, LLMProvider } from '../types/graph';
 import { queryCodebase } from '../lib/api';
 import GraphView2D from './GraphView2D';
 
@@ -12,6 +12,116 @@ interface QueryPanelProps {
     graph: GraphData;
     onQueryResult: (nodeIds: string[]) => void;
     onClearQuery: () => void;
+}
+
+const STORAGE_KEY = 'vectron_llm_config';
+const DEFAULT_LLM_CONFIG: LLMConfig = {
+    provider: 'auto',
+    apiKey: '',
+    model: '',
+    baseUrl: '',
+};
+
+const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
+    { value: 'auto', label: 'Auto (Groq \u2192 Cerebras)' },
+    { value: 'openai', label: 'OpenAI' },
+    { value: 'anthropic', label: 'Anthropic' },
+    { value: 'groq', label: 'Groq' },
+    { value: 'cerebras', label: 'Cerebras' },
+    { value: 'custom', label: 'Custom' },
+];
+
+const PROVIDER_LABELS: Record<LLMProvider, string> = {
+    auto: 'Auto',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    groq: 'Groq',
+    cerebras: 'Cerebras',
+    custom: 'Custom',
+};
+
+const MODEL_PLACEHOLDERS: Record<LLMProvider, string> = {
+    auto: 'llama-3.3-70b-versatile (default)',
+    openai: 'gpt-4o',
+    anthropic: 'claude-sonnet-4-5',
+    groq: 'llama-3.3-70b-versatile',
+    cerebras: 'llama3.1-8b',
+    custom: 'your-model-name',
+};
+
+const DEFAULT_MODEL_VALUES: Record<Exclude<LLMProvider, 'auto' | 'custom'>, string> = {
+    openai: 'gpt-4o',
+    anthropic: 'claude-sonnet-4-5',
+    groq: 'llama-3.3-70b-versatile',
+    cerebras: 'llama3.1-8b',
+};
+
+function isLLMProvider(value: string): value is LLMProvider {
+    return ['auto', 'openai', 'anthropic', 'groq', 'cerebras', 'custom'].includes(value);
+}
+
+function normalizeConfig(raw?: Partial<LLMConfig> | null): LLMConfig {
+    const provider = isLLMProvider((raw?.provider ?? '').toLowerCase())
+        ? (raw?.provider ?? '').toLowerCase() as LLMProvider
+        : 'auto';
+    const apiKey = raw?.apiKey?.trim() ?? '';
+    const baseUrl = raw?.baseUrl?.trim() ?? '';
+    const incomingModel = raw?.model?.trim() ?? '';
+
+    if (provider === 'auto') {
+        return { ...DEFAULT_LLM_CONFIG };
+    }
+
+    const model = provider === 'custom'
+        ? incomingModel
+        : incomingModel || DEFAULT_MODEL_VALUES[provider];
+
+    return {
+        provider,
+        apiKey,
+        model,
+        baseUrl: provider === 'custom' ? baseUrl : '',
+    };
+}
+
+function isCustomConfigActive(config: LLMConfig) {
+    return config.provider !== 'auto' && config.apiKey.trim().length > 0;
+}
+
+function getPoweredByLabel(config: LLMConfig) {
+    if (!isCustomConfigActive(config) || config.provider === 'auto') {
+        return 'Groq (auto)';
+    }
+
+    return `${PROVIDER_LABELS[config.provider]} (custom)`;
+}
+
+function GearIcon() {
+    return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                d="M19.14 12.94a7.66 7.66 0 0 0 .05-.94 7.66 7.66 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.63l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.02 7.02 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.49-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.12.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.85a.5.5 0 0 0 .12.63l2.03 1.58a7.66 7.66 0 0 0-.05.94c0 .32.02.63.05.94L2.82 14.52a.5.5 0 0 0-.12.63l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .49.42h3.84a.5.5 0 0 0 .49-.42l.36-2.54c.58-.22 1.13-.54 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.63ZM12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4Z"
+                fill="currentColor"
+            />
+        </svg>
+    );
+}
+
+function EyeIcon({ hidden }: { hidden: boolean }) {
+    return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                d="M12 6.5c5.08 0 9.27 3.11 10.5 5.5-1.23 2.39-5.42 5.5-10.5 5.5S2.73 14.39 1.5 12C2.73 9.61 6.92 6.5 12 6.5Zm0 2A3.5 3.5 0 1 0 12 15.5a3.5 3.5 0 0 0 0-7Z"
+                fill="currentColor"
+            />
+            {hidden && (
+                <path
+                    d="M4 4.7 19.3 20l-1.4 1.4L2.6 6.1 4 4.7Z"
+                    fill="currentColor"
+                />
+            )}
+        </svg>
+    );
 }
 
 function formatAiMessage(content: string) {
@@ -41,6 +151,10 @@ export default function QueryPanel({
     const [loading, setLoading] = useState(false);
     const [hasResult, setHasResult] = useState(false);
     const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([]);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [savedConfig, setSavedConfig] = useState<LLMConfig>(DEFAULT_LLM_CONFIG);
+    const [draftConfig, setDraftConfig] = useState<LLMConfig>(DEFAULT_LLM_CONFIG);
     const scrollRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -59,6 +173,14 @@ export default function QueryPanel({
         CONTAINS: true,
     }), []);
     const highlightedSet = useMemo(() => new Set(highlightedNodeIds), [highlightedNodeIds]);
+    const customConfigActive = useMemo(() => isCustomConfigActive(savedConfig), [savedConfig]);
+    const canSaveConfig = useMemo(() => {
+        if (draftConfig.provider === 'auto') return false;
+        if (!draftConfig.apiKey.trim()) return false;
+        if (draftConfig.provider === 'custom' && !draftConfig.model.trim()) return false;
+        return true;
+    }, [draftConfig]);
+    const poweredByLabel = useMemo(() => getPoweredByLabel(savedConfig), [savedConfig]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -69,6 +191,18 @@ export default function QueryPanel({
     useEffect(() => {
         const timer = window.setTimeout(() => textareaRef.current?.focus(), 80);
         return () => window.clearTimeout(timer);
+    }, []);
+
+    useEffect(() => {
+        try {
+            const stored = window.localStorage.getItem(STORAGE_KEY);
+            if (!stored) return;
+            const parsed = normalizeConfig(JSON.parse(stored) as Partial<LLMConfig>);
+            setSavedConfig(parsed);
+            setDraftConfig(parsed);
+        } catch {
+            window.localStorage.removeItem(STORAGE_KEY);
+        }
     }, []);
 
     useEffect(() => () => onClearQuery(), [onClearQuery]);
@@ -86,7 +220,7 @@ export default function QueryPanel({
         onClearQuery();
 
         try {
-            const data = await queryCodebase(graph, userQuestion);
+            const data = await queryCodebase(graph, userQuestion, savedConfig);
             setHistory((prev) => [...prev, { role: 'ai', content: data.explanation }]);
 
             if (data.relevantNodes.length > 0) {
@@ -112,6 +246,34 @@ export default function QueryPanel({
         }
     };
 
+    const handleDraftChange = (field: keyof LLMConfig, value: string) => {
+        setDraftConfig((prev) => ({
+            ...prev,
+            [field]: value,
+        }));
+    };
+
+    const handleSaveConfig = () => {
+        const nextConfig = normalizeConfig(draftConfig);
+        setSavedConfig(nextConfig);
+        setDraftConfig(nextConfig);
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            provider: nextConfig.provider,
+            apiKey: nextConfig.apiKey,
+            model: nextConfig.model,
+            ...(nextConfig.baseUrl ? { baseUrl: nextConfig.baseUrl } : {}),
+        }));
+        window.setTimeout(() => textareaRef.current?.focus(), 40);
+    };
+
+    const handleClearConfig = () => {
+        setSavedConfig(DEFAULT_LLM_CONFIG);
+        setDraftConfig(DEFAULT_LLM_CONFIG);
+        setShowApiKey(false);
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.setTimeout(() => textareaRef.current?.focus(), 40);
+    };
+
     const emptyState = useMemo(() => (
         <div className="query-empty-state">
             {"// SYSTEM READY..."}
@@ -124,25 +286,120 @@ export default function QueryPanel({
         <div className="ask-ai-page">
             <section className="ask-ai-chat-pane">
                 <div className="ask-ai-pane-header">
-                    <div>
+                    <div className="ask-ai-header-copy">
                         <h2 className="ask-ai-title">ASK YOUR CODEBASE</h2>
                         <p className="ask-ai-subtitle">
                             Probe call chains, dependency flow, and architectural behavior in plain language.
                         </p>
+                        <p className="ask-ai-provider-line">Powered by: {poweredByLabel}</p>
                     </div>
-                    {hasResult && (
+                    <div className="ask-ai-header-actions">
+                        {hasResult && (
+                            <button
+                                className="ask-ai-clear-btn"
+                                onClick={() => {
+                                    setHighlightedNodeIds([]);
+                                    setHasResult(false);
+                                    onClearQuery();
+                                }}
+                            >
+                                Clear Highlights
+                            </button>
+                        )}
                         <button
-                            className="ask-ai-clear-btn"
-                            onClick={() => {
-                                setHighlightedNodeIds([]);
-                                setHasResult(false);
-                                onClearQuery();
-                            }}
+                            type="button"
+                            className={`ask-ai-settings-btn ${settingsOpen ? 'open' : ''}`}
+                            onClick={() => setSettingsOpen((value) => !value)}
+                            aria-label="Toggle LLM configuration"
+                            aria-expanded={settingsOpen}
                         >
-                            Clear Highlights
+                            <span className={`ask-ai-settings-dot ${customConfigActive ? 'active' : ''}`} />
+                            <GearIcon />
                         </button>
-                    )}
+                    </div>
                 </div>
+
+                {settingsOpen && (
+                    <div className="ask-ai-settings-drawer">
+                        <div className="ask-ai-settings-title">LLM CONFIGURATION</div>
+
+                        <label className="ask-ai-settings-field">
+                            <span>Provider</span>
+                            <select
+                                value={draftConfig.provider}
+                                onChange={(event) => handleDraftChange('provider', event.target.value)}
+                                className="ask-ai-settings-input"
+                            >
+                                {PROVIDER_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label className="ask-ai-settings-field">
+                            <span>API Key</span>
+                            <div className="ask-ai-password-wrap">
+                                <input
+                                    type={showApiKey ? 'text' : 'password'}
+                                    value={draftConfig.apiKey}
+                                    onChange={(event) => handleDraftChange('apiKey', event.target.value)}
+                                    placeholder="Enter your API key..."
+                                    className="ask-ai-settings-input"
+                                />
+                                <button
+                                    type="button"
+                                    className="ask-ai-visibility-btn"
+                                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                                    onClick={() => setShowApiKey((value) => !value)}
+                                >
+                                    <EyeIcon hidden={!showApiKey} />
+                                </button>
+                            </div>
+                        </label>
+
+                        <label className="ask-ai-settings-field">
+                            <span>Model</span>
+                            <input
+                                type="text"
+                                value={draftConfig.model}
+                                onChange={(event) => handleDraftChange('model', event.target.value)}
+                                placeholder={MODEL_PLACEHOLDERS[draftConfig.provider]}
+                                className="ask-ai-settings-input"
+                            />
+                        </label>
+
+                        {draftConfig.provider === 'custom' && (
+                            <label className="ask-ai-settings-field">
+                                <span>Base URL</span>
+                                <input
+                                    type="text"
+                                    value={draftConfig.baseUrl ?? ''}
+                                    onChange={(event) => handleDraftChange('baseUrl', event.target.value)}
+                                    placeholder="https://api.openai.com/v1"
+                                    className="ask-ai-settings-input"
+                                />
+                            </label>
+                        )}
+
+                        <button
+                            type="button"
+                            className={`ask-ai-save-btn ${canSaveConfig ? 'filled' : 'empty'}`}
+                            onClick={handleSaveConfig}
+                            disabled={!canSaveConfig}
+                        >
+                            SAVE CONFIGURATION
+                        </button>
+                        <button
+                            type="button"
+                            className="ask-ai-reset-btn"
+                            onClick={handleClearConfig}
+                        >
+                            Clear &amp; Use Default
+                        </button>
+                    </div>
+                )}
 
                 <div ref={scrollRef} className="ask-ai-history">
                     {history.length === 0 && !loading && emptyState}

@@ -1778,6 +1778,16 @@ body {
     border-bottom: 1px solid rgba(0, 217, 255, 0.1);
 }
 
+.ask-ai-header-copy {
+    min-width: 0;
+}
+
+.ask-ai-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .ask-ai-title,
 .report-page-title {
     color: #00D9FF;
@@ -1804,6 +1814,188 @@ body {
     line-height: 1.7;
     letter-spacing: 0.04em;
     max-width: 520px;
+}
+
+.ask-ai-provider-line {
+    margin-top: 12px;
+    color: #8ea0bc;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ask-ai-settings-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(0, 217, 255, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #9befff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ask-ai-settings-btn:hover,
+.ask-ai-settings-btn.open {
+    background: rgba(0, 217, 255, 0.08);
+    border-color: rgba(0, 217, 255, 0.4);
+    color: #e6fbff;
+}
+
+.ask-ai-settings-btn svg,
+.ask-ai-visibility-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.ask-ai-settings-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #555566;
+    box-shadow: 0 0 0 2px #09111e;
+}
+
+.ask-ai-settings-dot.active {
+    background: #16d39a;
+}
+
+.ask-ai-settings-drawer {
+    margin: 0 28px 12px;
+    padding: 16px;
+    background: #0d1117;
+    border: 1px solid #1e1e2e;
+    border-radius: 8px;
+    animation: ask-ai-settings-slide 0.2s ease;
+}
+
+@keyframes ask-ai-settings-slide {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ask-ai-settings-title {
+    color: #00D9FF;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+}
+
+.ask-ai-settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #8ea0bc;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+
+.ask-ai-settings-input {
+    width: 100%;
+    background: #111118;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    color: #cccccc;
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+}
+
+.ask-ai-settings-input:focus {
+    border-color: #00D9FF;
+}
+
+.ask-ai-password-wrap {
+    position: relative;
+}
+
+.ask-ai-password-wrap .ask-ai-settings-input {
+    padding-right: 42px;
+}
+
+.ask-ai-visibility-btn {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #667293;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.ask-ai-visibility-btn:hover {
+    color: #e6fbff;
+}
+
+.ask-ai-save-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ask-ai-save-btn.filled {
+    background: #00D9FF15;
+    border: 1px solid #00D9FF40;
+    color: #00D9FF;
+}
+
+.ask-ai-save-btn.filled:hover {
+    background: #00D9FF25;
+    border-color: #00D9FF;
+}
+
+.ask-ai-save-btn.empty,
+.ask-ai-save-btn:disabled {
+    background: rgba(85, 85, 102, 0.15);
+    border: 1px solid rgba(85, 85, 102, 0.3);
+    color: #555566;
+    cursor: default;
+}
+
+.ask-ai-reset-btn {
+    width: 100%;
+    margin-top: 6px;
+    border: none;
+    background: transparent;
+    color: #555566;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.ask-ai-reset-btn:hover {
+    color: #888888;
 }
 
 .ask-ai-history {
