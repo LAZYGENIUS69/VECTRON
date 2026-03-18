@@ -246,8 +246,8 @@ export default function ExplorerPanel({ nodes, focusedFileId, onFileClick }: Exp
     const filteredTree = useMemo(() => filterTree(tree, normalizedQuery), [tree, normalizedQuery]);
 
     return (
-        <div className="explorer-tree-container">
-            <div className="explorer-search-shell">
+        <div className="explorer-tree-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            <div className="explorer-search-shell" style={{ flexShrink: 0 }}>
                 <label className="explorer-search">
                     <span className="explorer-search-icon" aria-hidden="true">
                         ⌕
@@ -262,7 +262,7 @@ export default function ExplorerPanel({ nodes, focusedFileId, onFileClick }: Exp
                 </label>
             </div>
 
-            <div className="explorer-tree">
+            <div className="explorer-tree" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                 {filteredTree.children.length > 0 ? (
                     filteredTree.children.map((child) =>
                         child.type === 'dir' ? (

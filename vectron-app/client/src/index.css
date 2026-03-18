@@ -2936,19 +2936,20 @@ body {
 
 /* Sidebar refresh inspired by the reference UI */
 .workspace-sidebar {
-    width: 334px;
-    min-width: 304px;
-    max-width: 348px;
-    background:
-        radial-gradient(circle at top left, rgba(0, 217, 255, 0.08), transparent 34%),
-        linear-gradient(180deg, #0b1020 0%, #090c17 52%, #080b13 100%);
-    border-right: 1px solid #192033;
-    box-shadow:
-        inset -1px 0 0 rgba(255, 255, 255, 0.02),
-        18px 0 40px rgba(0, 0, 0, 0.24);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  width: 334px;
+  min-width: 304px;
+  max-width: 348px;
+  height: 100%;
+  background:
+  radial-gradient(circle at top left, rgba(0, 217, 255, 0.08), transparent 34%),
+  linear-gradient(180deg, #0b1020 0%, #090c17 52%, #080b13 100%);
+  border-right: 1px solid #192033;
+  box-shadow:
+  inset -1px 0 0 rgba(255, 255, 255, 0.02),
+  18px 0 40px rgba(0, 0, 0, 0.24);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .workspace-sidebar-tabs {
@@ -3068,6 +3069,8 @@ body {
     min-height: 0;
     overflow: hidden;
     border: none !important;
+    display: flex;
+    flex-direction: column;
 }
 
 .workspace-sidebar .explorer-search-shell {
@@ -3117,11 +3120,14 @@ body {
 
 .workspace-sidebar .explorer-tree,
 .workspace-sidebar .filter-panel-content {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: 10px 10px 14px;
-    background: transparent;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  max-height: calc(100vh - 120px);
+  padding: 10px 10px 14px;
+  background: transparent;
 }
 
 .workspace-sidebar .explorer-node,
@@ -3299,13 +3305,13 @@ body {
 
 .workspace-sidebar .explorer-tree::-webkit-scrollbar-thumb,
 .workspace-sidebar .filter-panel-content::-webkit-scrollbar-thumb {
-    background: #2a3553;
-    border-radius: 999px;
+  background: #424242;
+  border-radius: 999px;
 }
 
 .workspace-sidebar .explorer-tree::-webkit-scrollbar-thumb:hover,
 .workspace-sidebar .filter-panel-content::-webkit-scrollbar-thumb:hover {
-    background: #41537d;
+  background: #686868;
 }
 
 .graph-right-panel {
