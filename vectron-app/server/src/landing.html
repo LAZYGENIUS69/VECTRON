@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VECTRON | Dependency Propagation Engine</title>
+  <meta
+    name="description"
+    content="Parse any codebase, map every dependency, and see the blast radius before you break anything."
+  />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #000000;
+      --bg-secondary: #080810;
+      --bg-card: #0a0a14;
+      --accent: #00d9ff;
+      --accent-dim: rgba(0, 217, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.06);
+      --text-primary: #ffffff;
+      --text-secondary: #888899;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', sans-serif;
+      --violet: #7b61ff;
+      --shadow-glow: 0 0 80px rgba(0, 217, 255, 0.12);
+      --grid-line: rgba(255, 255, 255, 0.04);
+      --container: 1200px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top center, rgba(0, 217, 255, 0.08), transparent 28%),
+        radial-gradient(circle at 80% 20%, rgba(123, 97, 255, 0.12), transparent 24%),
+        linear-gradient(180deg, #020204 0%, #000000 32%, #05050b 100%);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--grid-line) calc(100% - 1px)),
+        linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--grid-line) calc(100% - 1px));
+      background-size: 120px 120px, 120px 120px;
+      opacity: 0.3;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 90%);
+      z-index: -2;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    canvas,
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .page-shell {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page-shell::before,
+    .page-shell::after {
+      content: "";
+      position: fixed;
+      width: 44vw;
+      height: 44vw;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(90px);
+      opacity: 0.18;
+      z-index: -1;
+    }
+
+    .page-shell::before {
+      top: -10vw;
+      left: -12vw;
+      background: rgba(0, 217, 255, 0.26);
+    }
+
+    .page-shell::after {
+      top: 14vh;
+      right: -14vw;
+      background: rgba(123, 97, 255, 0.22);
+    }
+
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      padding: 0 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 20;
+    }
+
+    .nav-brand,
+    .footer-brand {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      letter-spacing: 0.3em;
+      color: var(--text-primary);
+      text-transform: uppercase;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-link,
+    .footer-link {
+      color: var(--text-secondary);
+      font-size: 13px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-link:hover,
+    .footer-link:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-button,
+    .button-primary,
+    .button-secondary,
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .nav-button {
+      border: 1px solid var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 8px 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      box-shadow: 0 0 0 rgba(0, 217, 255, 0);
+    }
+
+    .nav-button:hover {
+      background: rgba(0, 217, 255, 0.2);
+      box-shadow: 0 0 24px rgba(0, 217, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    main {
+      position: relative;
+    }
+
+    section {
+      position: relative;
+      padding: 120px 48px;
+    }
+
+    .section-inner {
+      width: min(100%, var(--container));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 96px;
+      padding-bottom: 72px;
+      isolation: isolate;
+    }
+
+    .hero-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.95;
+    }
+
+    .hero-inner {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .badge,
+    .section-label,
+    .mcp-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 217, 255, 0.2);
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      padding: 6px 16px;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(72px, 12vw, 140px);
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      line-height: 0.92;
+      color: var(--text-primary);
+      text-shadow: 0 0 30px rgba(255, 255, 255, 0.06);
+    }
+
+    .hero-subtitle {
+      max-width: 500px;
+      font-size: 18px;
+      color: var(--text-secondary);
+      font-weight: 300;
+      line-height: 1.8;
+    }
+
+    .hero-actions,
+    .cta-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .button-primary,
+    .cta-button {
+      background: var(--accent);
+      color: #000000;
+      padding: 14px 32px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .button-primary:hover,
+    .cta-button:hover {
+      background: #00bbdd;
+      transform: translateY(-1px);
+    }
+
+    .button-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 14px 32px;
+      font-size: 14px;
+    }
+
+    .button-secondary:hover {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    .scroll-indicator {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      color: var(--text-secondary);
+      font-size: 24px;
+      animation: bounce 1.8s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateX(-50%) translateY(0);
+      }
+      40% {
+        transform: translateX(-50%) translateY(-8px);
+      }
+      60% {
+        transform: translateX(-50%) translateY(-4px);
+      }
+    }
+
+    .section-label {
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      margin-bottom: 24px;
+      justify-content: flex-start;
+    }
+
+    .capability {
+      padding-top: 96px;
+      padding-bottom: 96px;
+    }
+
+    .capability .section-inner {
+      max-width: 800px;
+    }
+
+    .statement-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .statement {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      align-items: start;
+      gap: 18px;
+      padding: 12px 0 12px 24px;
+      border-left: 2px solid var(--accent);
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .statement-number {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: rgba(0, 217, 255, 0.9);
+      letter-spacing: 0.08em;
+      padding-top: 5px;
+    }
+
+    .statement-text {
+      font-size: 24px;
+      font-weight: 300;
+      color: var(--text-primary);
+      line-height: 1.45;
+    }
+
+    .fade-in {
+      opacity: 0;
+      transform: translateY(36px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .fade-in.is-visible,
+    .statement.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .features .section-inner {
+      display: grid;
+      gap: 28px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      position: relative;
+      padding: 28px;
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0)),
+        var(--bg-card);
+      border: 1px solid var(--border);
+      min-height: 220px;
+      overflow: hidden;
+      transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      inset: auto -20% -40% auto;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 217, 255, 0.14), transparent 65%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(0, 217, 255, 0.3);
+      background:
+        linear-gradient(180deg, rgba(0, 217, 255, 0.03), rgba(255, 255, 255, 0)),
+        rgba(0, 217, 255, 0.03);
+      transform: translateY(-4px);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon {
+      margin-bottom: 18px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .feature-title {
+      margin: 0 0 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+    }
+
+    .feature-description {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+      max-width: 32ch;
+    }
+
+    .mcp {
+      background:
+        radial-gradient(circle at 10% 20%, rgba(0, 217, 255, 0.08), transparent 20%),
+        linear-gradient(180deg, rgba(8, 8, 16, 0.98) 0%, rgba(4, 4, 9, 0.98) 100%);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mcp-layout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 48px;
+      align-items: center;
+    }
+
+    .mcp-badge {
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      justify-content: flex-start;
+      margin-bottom: 18px;
+    }
+
+    .mcp-title {
+      margin: 0 0 20px;
+      font-size: 36px;
+      font-weight: 300;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    .mcp-copy {
+      max-width: 520px;
+      color: var(--text-secondary);
+      font-size: 16px;
+      line-height: 1.8;
+      margin-bottom: 26px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tool-pill {
+      background: #0a0a14;
+      border: 1px solid #1e1e2e;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 4px;
+    }
+
+    .code-block {
+      position: relative;
+      background: #0a0a14;
+      border: 1px solid #1e1e2e;
+      border-radius: 8px;
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.9;
+      overflow: hidden;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.02),
+        0 30px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    .code-block::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 217, 255, 0.04), transparent 42%);
+      pointer-events: none;
+    }
+
+    .code-comment {
+      color: #555566;
+    }
+
+    .code-key {
+      color: #00d9ff;
+    }
+
+    .code-value {
+      color: #98c379;
+    }
+
+    .code-punctuation {
+      color: #888888;
+    }
+
+    .tech {
+      padding-top: 72px;
+      padding-bottom: 72px;
+    }
+
+    .tech-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin-top: 20px;
+    }
+
+    .tech-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 18px 18px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .tech-item + .tech-item {
+      position: relative;
+    }
+
+    .tech-item + .tech-item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 14px;
+      bottom: 14px;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .cta {
+      padding-top: 120px;
+      padding-bottom: 120px;
+      text-align: center;
+    }
+
+    .cta-title {
+      margin: 0 0 16px;
+      font-size: clamp(36px, 6vw, 72px);
+      font-weight: 300;
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+
+    .cta-copy {
+      margin: 0 0 28px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cta-button {
+      padding: 18px 48px;
+      font-size: 16px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 24px 48px;
+    }
+
+    .footer-inner {
+      width: min(100%, var(--container));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    @media (max-width: 1100px) {
+      .features-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .mcp-layout {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .nav,
+      section,
+      footer {
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+
+      .nav {
+        height: auto;
+        min-height: 56px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .hero {
+        min-height: auto;
+        padding-top: 128px;
+        padding-bottom: 96px;
+      }
+
+      .hero-inner {
+        gap: 22px;
+      }
+
+      .hero-title {
+        letter-spacing: 0.02em;
+      }
+
+      .statement {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding-left: 18px;
+      }
+
+      .statement-text {
+        font-size: 20px;
+      }
+
+      .cta {
+        padding-top: 96px;
+        padding-bottom: 96px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .nav-brand,
+      .footer-brand {
+        letter-spacing: 0.22em;
+      }
+
+      .nav-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .hero-subtitle {
+        font-size: 16px;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-card {
+        min-height: auto;
+      }
+
+      .tech-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .tech-item {
+        padding: 16px 14px;
+      }
+
+      .tech-item::before,
+      .tech-item + .tech-item::before {
+        display: none;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <nav class="nav">
+      <a class="nav-brand" href="/">VECTRON</a>
+      <div class="nav-actions">
+        <a class="nav-link" href="https://github.com/LAZYGENIUS69/VECTRON" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="nav-button" href="/app">Launch App &rarr;</a>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <canvas id="particle-canvas" class="hero-canvas" aria-hidden="true"></canvas>
+        <div class="hero-inner fade-in is-visible">
+          <div class="badge">Dependency Propagation Engine</div>
+          <h1 class="hero-title">VECTRON</h1>
+          <div class="hero-subtitle">
+            Parse any codebase. Map every dependency.<br />
+            See the blast radius before you break anything.
+          </div>
+          <div class="hero-actions">
+            <a class="button-primary" href="/app">Launch App &rarr;</a>
+            <a class="button-secondary" href="https://github.com/LAZYGENIUS69/VECTRON" target="_blank" rel="noreferrer">View on GitHub</a>
+          </div>
+        </div>
+        <a class="scroll-indicator" href="#capability" aria-label="Scroll to capability section">&darr;</a>
+      </section>
+
+      <section id="capability" class="capability">
+        <div class="section-inner">
+          <div class="section-label fade-in">Core Capability</div>
+          <div class="statement-list">
+            <div class="statement reveal-on-scroll">
+              <div class="statement-number">01</div>
+              <div class="statement-text">Upload any JS/TS repository as a ZIP</div>
+            </div>
+            <div class="statement reveal-on-scroll">
+              <div class="statement-number">02</div>
+              <div class="statement-text">Get a live interactive dependency graph instantly</div>
+            </div>
+            <div class="statement reveal-on-scroll">
+              <div class="statement-number">03</div>
+              <div class="statement-text">Click any node. See the blast radius. Before you touch anything.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="section-inner">
+          <div class="section-label fade-in reveal-on-scroll">Capabilities</div>
+          <div class="features-grid">
+            <article class="feature-card fade-in reveal-on-scroll">
+              <div class="feature-icon">◎</div>
+              <h3 class="feature-title">Blast Radius BFS</h3>
+              <p class="feature-description">Trace dependency propagation outward from any node and quantify exactly how far a risky change can travel.</p>
+            </article>
+            <article class="feature-card fade-in reveal-on-scroll">
+              <div class="feature-icon">⬡</div>
+              <h3 class="feature-title">Dependency Graph</h3>
+              <p class="feature-description">Render files, functions, classes, and methods as a live graph with structural edges you can inspect in motion.</p>
+            </article>
+            <article class="feature-card fade-in reveal-on-scroll">
+              <div class="feature-icon">⌘</div>
+              <h3 class="feature-title">AI Codebase Query</h3>
+              <p class="feature-description">Ask plain-English questions and get graph-grounded call chains that stay anchored to real nodes in your codebase.</p>
+            </article>
+            <article class="feature-card fade-in reveal-on-scroll">
+              <div class="feature-icon">≋</div>
+              <h3 class="feature-title">Process Detection</h3>
+              <p class="feature-description">Surface meaningful runtime flows from trigger to side effect, then inspect them as generated Mermaid diagrams.</p>
+            </article>
+            <article class="feature-card fade-in reveal-on-scroll">
+              <div class="feature-icon">◈</div>
+              <h3 class="feature-title">Risk Scoring</h3>
+              <p class="feature-description">Highlight the most connected components so you can prioritize refactors around the modules most likely to create damage.</p>
+            </article>
+            <article class="feature-card fade-in reveal-on-scroll">
+              <div class="feature-icon">⎙</div>
+              <h3 class="feature-title">Intelligence Report</h3>
+              <p class="feature-description">Generate an architecture brief with hotspots, onboarding paths, and actionable codebase intelligence in one pass.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="mcp">
+        <div class="section-inner mcp-layout">
+          <div class="fade-in reveal-on-scroll">
+            <div class="mcp-badge">MCP Server</div>
+            <h2 class="mcp-title">Give your AI coding assistant a map.</h2>
+            <div class="mcp-copy">
+              VECTRON runs as an MCP server on port 3002. Connect it to Claude Code, Cursor, or Antigravity.
+              Your AI now has full dependency context while coding.
+            </div>
+            <div class="pill-row">
+              <span class="tool-pill">vectron_status</span>
+              <span class="tool-pill">vectron_blast_radius</span>
+              <span class="tool-pill">vectron_get_callers</span>
+              <span class="tool-pill">vectron_get_dependencies</span>
+              <span class="tool-pill">vectron_query</span>
+            </div>
+          </div>
+
+          <div class="code-block fade-in reveal-on-scroll" aria-label="MCP configuration example">
+            <span class="code-comment">// Add to your MCP client</span><br />
+            <span class="code-punctuation">{</span><br />
+            &nbsp;&nbsp;<span class="code-key">"name"</span><span class="code-punctuation">:</span> <span class="code-value">"VECTRON"</span><span class="code-punctuation">,</span><br />
+            &nbsp;&nbsp;<span class="code-key">"url"</span><span class="code-punctuation">:</span> <span class="code-value">"http://localhost:3002/sse"</span><span class="code-punctuation">,</span><br />
+            &nbsp;&nbsp;<span class="code-key">"type"</span><span class="code-punctuation">:</span> <span class="code-value">"sse"</span><br />
+            <span class="code-punctuation">}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="tech">
+        <div class="section-inner">
+          <div class="section-label fade-in reveal-on-scroll">Built With</div>
+          <div class="tech-row fade-in reveal-on-scroll">
+            <span class="tech-item">React</span>
+            <span class="tech-item">TypeScript</span>
+            <span class="tech-item">Sigma.js</span>
+            <span class="tech-item">Graphology</span>
+            <span class="tech-item">ForceAtlas2</span>
+            <span class="tech-item">Express</span>
+            <span class="tech-item">Babel</span>
+            <span class="tech-item">Groq</span>
+            <span class="tech-item">Cerebras</span>
+            <span class="tech-item">Mermaid.js</span>
+            <span class="tech-item">MCP</span>
+            <span class="tech-item">Railway</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div class="section-inner fade-in reveal-on-scroll">
+          <h2 class="cta-title">Upload your codebase.</h2>
+          <p class="cta-copy">Supports JS · TS · JSX · TSX</p>
+          <div class="cta-actions">
+            <a class="cta-button" href="/app">Launch VECTRON &rarr;</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <div class="footer-brand">VECTRON</div>
+        <a class="footer-link" href="https://github.com/LAZYGENIUS69/VECTRON" target="_blank" rel="noreferrer">GitHub</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('particle-canvas');
+      const context = canvas.getContext('2d');
+      const particleCount = 40;
+      const particles = [];
+      const colors = ['#00D9FF', '#7B61FF'];
+      let width = 0;
+      let height = 0;
+      let animationFrame = 0;
+
+      function resizeCanvas() {
+        width = canvas.offsetWidth;
+        height = canvas.offsetHeight;
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function createParticle() {
+        const driftScale = Math.random() * 0.35 + 0.15;
+        return {
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * driftScale,
+          vy: (Math.random() - 0.5) * driftScale,
+          size: Math.random() * 2 + 2,
+          color: colors[Math.floor(Math.random() * colors.length)]
+        };
+      }
+
+      function populateParticles() {
+        particles.length = 0;
+        for (let i = 0; i < particleCount; i += 1) {
+          particles.push(createParticle());
+        }
+      }
+
+      function drawConnections() {
+        for (let i = 0; i < particles.length; i += 1) {
+          for (let j = i + 1; j < particles.length; j += 1) {
+            const a = particles[i];
+            const b = particles[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 160 && (i + j) % 3 === 0) {
+              const opacity = 1 - distance / 160;
+              context.strokeStyle = `rgba(0, 217, 255, ${0.15 * opacity})`;
+              context.lineWidth = 1;
+              context.beginPath();
+              context.moveTo(a.x, a.y);
+              context.lineTo(b.x, b.y);
+              context.stroke();
+            }
+          }
+        }
+      }
+
+      function updateParticles() {
+        particles.forEach((particle) => {
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+
+          if (particle.x < -40) particle.x = width + 40;
+          if (particle.x > width + 40) particle.x = -40;
+          if (particle.y < -40) particle.y = height + 40;
+          if (particle.y > height + 40) particle.y = -40;
+        });
+      }
+
+      function drawParticles() {
+        particles.forEach((particle) => {
+          context.fillStyle = particle.color;
+          context.shadowBlur = particle.color === '#00D9FF' ? 16 : 12;
+          context.shadowColor = particle.color;
+          context.beginPath();
+          context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          context.fill();
+        });
+        context.shadowBlur = 0;
+      }
+
+      function render() {
+        context.clearRect(0, 0, width, height);
+        updateParticles();
+        drawConnections();
+        drawParticles();
+        animationFrame = window.requestAnimationFrame(render);
+      }
+
+      function onResize() {
+        resizeCanvas();
+        populateParticles();
+      }
+
+      onResize();
+      render();
+      window.addEventListener('resize', onResize);
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.18,
+        rootMargin: '0px 0px -8% 0px'
+      });
+
+      document.querySelectorAll('.reveal-on-scroll').forEach((element) => {
+        observer.observe(element);
+      });
+
+      window.addEventListener('beforeunload', () => {
+        window.cancelAnimationFrame(animationFrame);
+      });
+    })();
+  </script>
+</body>
+</html>

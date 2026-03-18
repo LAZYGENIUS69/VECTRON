@@ -788,8 +788,12 @@ app.get("/api/file", (req, res) => {
   res.json({ path: filePath, content });
 });
 
-app.use(express.static(path.join(__dirname, "../../client/dist")));
-app.get("*", (_req, res) => {
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "landing.html"));
+});
+
+app.use("/app", express.static(path.join(__dirname, "../../client/dist")));
+app.get("/app/*", (_req, res) => {
   res.sendFile(path.join(__dirname, "../../client/dist/index.html"));
 });
 

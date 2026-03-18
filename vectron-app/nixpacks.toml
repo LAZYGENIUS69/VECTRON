@@ -3,7 +3,7 @@ cmds = [
   "npm install --prefix client",
   "npm install --prefix server",
   "npm run build --prefix client",
-  "cd server && npx tsc --skipLibCheck"
+  "npm run build --prefix server"
 ]
 
 [start]
