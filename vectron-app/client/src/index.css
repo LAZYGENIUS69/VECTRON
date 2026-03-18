@@ -2782,6 +2782,8 @@ body {
     min-height: 0;
     overflow: hidden;
     user-select: none;
+    display: flex;
+    flex-direction: column;
 }
 
 .explorer-panel .explorer-header {
@@ -2817,7 +2819,9 @@ body {
 
 .explorer-panel .explorer-tree {
     flex: 1;
-    overflow: auto;
+    overflow-y: auto;
+    height: 100%;
+    max-height: calc(100vh - 120px);
     background: #252526;
 }
 
@@ -2914,12 +2918,12 @@ body {
 }
 
 .explorer-panel .explorer-tree::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 .explorer-panel .explorer-tree::-webkit-scrollbar-track {
-    background: #1e1e1e;
+    background: transparent;
 }
 
 .explorer-panel .explorer-tree::-webkit-scrollbar-thumb {
