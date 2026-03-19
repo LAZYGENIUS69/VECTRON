@@ -2935,6 +2935,7 @@ body {
     width: 334px;
     min-width: 304px;
     max-width: 348px;
+    min-height: 0;
     background:
         radial-gradient(circle at top left, rgba(0, 217, 255, 0.08), transparent 34%),
         linear-gradient(180deg, #0b1020 0%, #090c17 52%, #080b13 100%);
@@ -3058,9 +3059,11 @@ body {
 
 .workspace-sidebar .explorer-tree-container,
 .workspace-sidebar .filter-panel {
+    flex: 1;
     background: transparent;
     color: #d4d7f5;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow: hidden;
     border: none !important;
@@ -3113,9 +3116,13 @@ body {
 
 .workspace-sidebar .explorer-tree,
 .workspace-sidebar .filter-panel-content {
-    flex: 1;
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
     min-height: 0;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     padding: 10px 10px 14px;
     background: transparent;
 }
@@ -3295,13 +3302,12 @@ body {
 
 .workspace-sidebar .explorer-tree::-webkit-scrollbar-thumb,
 .workspace-sidebar .filter-panel-content::-webkit-scrollbar-thumb {
-    background: #2a3553;
-    border-radius: 999px;
+    background: #424242;
 }
 
 .workspace-sidebar .explorer-tree::-webkit-scrollbar-thumb:hover,
 .workspace-sidebar .filter-panel-content::-webkit-scrollbar-thumb:hover {
-    background: #41537d;
+    background: #686868;
 }
 
 .graph-right-panel {
