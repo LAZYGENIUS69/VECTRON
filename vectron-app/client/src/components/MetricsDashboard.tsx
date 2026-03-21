@@ -25,12 +25,12 @@ const TYPE_COLORS: Record<string, string> = {
 const TYPE_LABELS: Array<GraphNode['type']> = ['file', 'function', 'class', 'method'];
 
 function truncateLabel(label: string, maxLength: number) {
-    return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
+    return label.length > maxLength ? `${label.slice(0, maxLength - 1)}...` : label;
 }
 
 function getBarColor(connections: number) {
-    if (connections > 20) return '#FF453A';
-    if (connections > 10) return '#FF9F0A';
+    if (connections > 20) return '#FF3B30';
+    if (connections > 10) return '#FF9500';
     return '#30D158';
 }
 
@@ -71,10 +71,7 @@ export default function MetricsDashboard({ graph }: MetricsDashboardProps) {
             };
         });
 
-        const maxDegree = Math.max(
-            1,
-            ...baseRows.map((row) => row.connections),
-        );
+        const maxDegree = Math.max(1, ...baseRows.map((row) => row.connections));
 
         const riskRows: NodeMetricRow[] = baseRows
             .map((row) => {
@@ -106,11 +103,8 @@ export default function MetricsDashboard({ graph }: MetricsDashboardProps) {
     }, [graph]);
 
     const maxConnections = Math.max(1, ...metrics.topConnected.map((row) => row.connections));
-    const donutTotal = Math.max(
-        1,
-        metrics.typeDistribution.reduce((sum, item) => sum + item.value, 0),
-    );
-    const donutRadius = 84;
+    const donutTotal = Math.max(1, metrics.typeDistribution.reduce((sum, item) => sum + item.value, 0));
+    const donutRadius = 56;
     const donutCircumference = 2 * Math.PI * donutRadius;
     let donutOffset = 0;
 
@@ -118,71 +112,70 @@ export default function MetricsDashboard({ graph }: MetricsDashboardProps) {
         <div className="metrics-dashboard">
             <div className="metrics-dashboard-grid">
                 <section className="metrics-card stats-card">
-                    <span className="metrics-card-label">Total Nodes</span>
+                    <span className="metrics-card-label">TOTAL NODES</span>
                     <strong className="metrics-card-value">{graph.nodes.length}</strong>
+                    <span className="metrics-card-meta">Graph entities in memory</span>
                 </section>
                 <section className="metrics-card stats-card">
-                    <span className="metrics-card-label">Total Edges</span>
+                    <span className="metrics-card-label">TOTAL EDGES</span>
                     <strong className="metrics-card-value">{graph.edges.length}</strong>
+                    <span className="metrics-card-meta">Relationships currently indexed</span>
                 </section>
                 <section className="metrics-card stats-card">
-                    <span className="metrics-card-label">Most Connected Node</span>
+                    <span className="metrics-card-label">MOST CONNECTED NODE</span>
                     <strong className="metrics-card-detail">
                         {metrics.mostConnected ? truncateLabel(metrics.mostConnected.node.label, 26) : 'None'}
                     </strong>
                     <span className="metrics-card-meta">
-                        {metrics.mostConnected ? `${metrics.mostConnected.connections} connections` : '0 connections'}
+                        {metrics.mostConnected ? `${metrics.mostConnected.connections} total connections` : '0 connections'}
                     </span>
                 </section>
                 <section className="metrics-card stats-card">
-                    <span className="metrics-card-label">Average Connections per Node</span>
+                    <span className="metrics-card-label">AVERAGE CONNECTIONS</span>
                     <strong className="metrics-card-value">{metrics.averageConnections.toFixed(1)}</strong>
+                    <span className="metrics-card-meta">Per node across the graph</span>
                 </section>
             </div>
 
             <div className="metrics-dashboard-row">
                 <section className="metrics-panel-card metrics-chart-card">
                     <div className="metrics-section-header">
-                        <h3>Top 10 Most Connected Nodes</h3>
+                        <h3>TOP 10 MOST CONNECTED NODES</h3>
                     </div>
-                    <svg className="metrics-bar-chart" viewBox="0 0 640 360" role="img" aria-label="Top connected nodes">
-                        <rect x="0" y="0" width="640" height="360" rx="16" fill="rgba(3, 10, 19, 0.75)" />
-                        {metrics.topConnected.map((row, index) => {
-                            const y = 28 + index * 31;
-                            const barWidth = (row.connections / maxConnections) * 260;
-                            const color = getBarColor(row.connections);
-
-                            return (
-                                <g key={row.node.id}>
-                                    <text x="24" y={y + 14} fill="#E6FBFF" fontSize="11" fontFamily="var(--mono)">
-                                        {truncateLabel(row.node.label, 26)}
-                                    </text>
-                                    <text x="24" y={y + 26} fill="#7C8DA6" fontSize="9" fontFamily="var(--mono)">
-                                        {row.node.type}
-                                    </text>
-                                    <rect x="250" y={y} width="320" height="16" rx="8" fill="rgba(255,255,255,0.06)" />
-                                    <rect x="250" y={y} width={barWidth} height="16" rx="8" fill={color} />
-                                    <text x="580" y={y + 12} fill="#F8FAFC" fontSize="10" textAnchor="end" fontFamily="var(--mono)">
-                                        {row.connections}
-                                    </text>
-                                </g>
-                            );
-                        })}
-                    </svg>
+                    <div className="metrics-bar-chart" role="img" aria-label="Top connected nodes">
+                        {metrics.topConnected.map((row, index) => (
+                            <div key={row.node.id} className="metrics-bar-row" style={{ animationDelay: `${index * 40}ms` }}>
+                                <div className="metrics-bar-meta">
+                                    <div className="metrics-bar-name">{truncateLabel(row.node.label, 22)}</div>
+                                    <div className="metrics-bar-type">{row.node.type}</div>
+                                </div>
+                                <div className="metrics-bar-track">
+                                    <div
+                                        className="metrics-bar-fill"
+                                        style={{
+                                            width: `${(row.connections / maxConnections) * 100}%`,
+                                            background: getBarColor(row.connections),
+                                        }}
+                                    />
+                                </div>
+                                <div className="metrics-bar-count">{row.connections}</div>
+                            </div>
+                        ))}
+                    </div>
                 </section>
 
-                <section className="metrics-panel-card metrics-chart-card">
+                <section className="metrics-panel-card metrics-chart-card metrics-donut-card">
                     <div className="metrics-section-header">
-                        <h3>Node Type Distribution</h3>
+                        <h3>NODE TYPE DISTRIBUTION</h3>
                     </div>
                     <div className="metrics-donut-wrap">
-                        <svg className="metrics-donut-chart" viewBox="0 0 260 260" role="img" aria-label="Node type distribution">
+                        <svg className="metrics-donut-chart" viewBox="24 24 152 152" role="img" aria-label="Node type distribution">
                             <circle
-                                cx="130"
-                                cy="130"
+                                cx="100"
+                                cy="100"
                                 r={donutRadius}
                                 stroke="rgba(255,255,255,0.08)"
-                                strokeWidth="30"
+                                strokeWidth="20"
                                 fill="none"
                             />
                             {metrics.typeDistribution.map((slice) => {
@@ -190,26 +183,23 @@ export default function MetricsDashboard({ graph }: MetricsDashboardProps) {
                                 const circle = (
                                     <circle
                                         key={slice.type}
-                                        cx="130"
-                                        cy="130"
+                                        cx="100"
+                                        cy="100"
                                         r={donutRadius}
                                         stroke={slice.color}
-                                        strokeWidth="30"
+                                        strokeWidth="20"
                                         fill="none"
                                         strokeDasharray={`${sliceLength} ${donutCircumference - sliceLength}`}
                                         strokeDashoffset={-donutOffset}
                                         strokeLinecap="butt"
-                                        transform="rotate(-90 130 130)"
+                                        transform="rotate(-90 100 100)"
                                     />
                                 );
                                 donutOffset += sliceLength;
                                 return circle;
                             })}
-                            <text x="130" y="124" textAnchor="middle" fill="#E6FBFF" fontSize="16" fontFamily="var(--mono)">
+                            <text x="100" y="103" textAnchor="middle" fill="#ffffff" fontSize="16" fontFamily="var(--font-mono)">
                                 {graph.nodes.length}
-                            </text>
-                            <text x="130" y="146" textAnchor="middle" fill="#7C8DA6" fontSize="10" fontFamily="var(--mono)">
-                                total nodes
                             </text>
                         </svg>
 
@@ -228,27 +218,46 @@ export default function MetricsDashboard({ graph }: MetricsDashboardProps) {
 
             <section className="metrics-panel-card metrics-risk-card">
                 <div className="metrics-section-header">
-                    <h3>Risk Table</h3>
+                    <h3>RISK TABLE</h3>
                 </div>
 
                 <div className="metrics-risk-table-wrap">
                     <table className="metrics-risk-table">
                         <thead>
                             <tr>
-                                <th>Node</th>
-                                <th>Type</th>
-                                <th>Connections</th>
-                                <th>Risk Score</th>
-                                <th>Status</th>
+                                <th>NODE</th>
+                                <th>TYPE</th>
+                                <th>CONNECTIONS</th>
+                                <th>RISK SCORE</th>
+                                <th>STATUS</th>
                             </tr>
                         </thead>
                         <tbody>
                             {metrics.riskRows.map((row) => (
                                 <tr key={row.node.id}>
-                                    <td title={row.node.label}>{truncateLabel(row.node.label, 38)}</td>
-                                    <td>{row.node.type}</td>
-                                    <td>{row.connections}</td>
-                                    <td>{row.riskScore.toFixed(1)}</td>
+                                    <td title={row.node.label} className="metrics-risk-node-cell">
+                                        {truncateLabel(row.node.label, 38)}
+                                    </td>
+                                    <td>
+                                        <span className={`metrics-type-pill metrics-type-${row.node.type}`}>
+                                            {row.node.type.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td className="metrics-risk-number">{row.connections}</td>
+                                    <td>
+                                        <div className="metrics-risk-score-cell">
+                                            <span className="metrics-risk-number">{row.riskScore.toFixed(1)}%</span>
+                                            <span className="metrics-risk-mini-track">
+                                                <span
+                                                    className="metrics-risk-mini-fill"
+                                                    style={{
+                                                        width: `${row.riskScore}%`,
+                                                        background: getBarColor(row.connections),
+                                                    }}
+                                                />
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td>
                                         <span className={`metrics-status-pill status-${row.status.toLowerCase()}`}>
                                             {row.status}

@@ -14,11 +14,15 @@ const LOADING_STEPS = [
 ];
 
 function renderInlineMarkdown(text: string) {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
 
     return parts.map((part, index) => {
         if (part.startsWith('**') && part.endsWith('**')) {
             return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+        }
+
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={`${part}-${index}`}>{part.slice(1, -1)}</code>;
         }
 
         return <span key={`${part}-${index}`}>{part}</span>;
@@ -30,6 +34,8 @@ function renderMarkdown(report: string) {
     const blocks: React.ReactNode[] = [];
     let bulletItems: string[] = [];
     let paragraphLines: string[] = [];
+    let codeLines: string[] = [];
+    let inCodeBlock = false;
 
     const flushBullets = () => {
         if (bulletItems.length === 0) return;
@@ -53,46 +59,76 @@ function renderMarkdown(report: string) {
         paragraphLines = [];
     };
 
+    const flushCodeBlock = () => {
+        if (codeLines.length === 0) return;
+        blocks.push(
+            <pre key={`pre-${blocks.length}`} className="report-code-block">
+                <code>{codeLines.join('\n')}</code>
+            </pre>,
+        );
+        codeLines = [];
+    };
+
     lines.forEach((rawLine) => {
-        const line = rawLine.trim();
+        const line = rawLine.trimEnd();
 
-        if (!line) {
+        if (line.trim().startsWith('```')) {
+            flushBullets();
+            flushParagraph();
+            if (inCodeBlock) {
+                flushCodeBlock();
+                inCodeBlock = false;
+            } else {
+                inCodeBlock = true;
+            }
+            return;
+        }
+
+        if (inCodeBlock) {
+            codeLines.push(rawLine);
+            return;
+        }
+
+        const trimmed = line.trim();
+
+        if (!trimmed) {
             flushBullets();
             flushParagraph();
             return;
         }
 
-        if (line.startsWith('# ')) {
+        if (trimmed.startsWith('# ')) {
             flushBullets();
             flushParagraph();
-            blocks.push(<h1 key={`h1-${blocks.length}`}>{line.slice(2)}</h1>);
+            blocks.push(<h1 key={`h1-${blocks.length}`}>{trimmed.slice(2)}</h1>);
             return;
         }
 
-        if (line.startsWith('## ')) {
+        if (trimmed.startsWith('## ')) {
             flushBullets();
             flushParagraph();
-            blocks.push(<h2 key={`h2-${blocks.length}`}>{line.slice(3)}</h2>);
+            blocks.push(<h2 key={`h2-${blocks.length}`}>{trimmed.slice(3)}</h2>);
             return;
         }
 
-        if (line.startsWith('### ')) {
+        if (trimmed.startsWith('### ')) {
             flushBullets();
             flushParagraph();
-            blocks.push(<h3 key={`h3-${blocks.length}`}>{line.slice(4)}</h3>);
+            blocks.push(<h3 key={`h3-${blocks.length}`}>{trimmed.slice(4)}</h3>);
             return;
         }
 
-        if (line.startsWith('- ')) {
+        if (trimmed.startsWith('- ')) {
             flushParagraph();
-            bulletItems.push(line.slice(2));
+            bulletItems.push(trimmed.slice(2));
             return;
         }
 
         flushBullets();
-        paragraphLines.push(line);
+        paragraphLines.push(trimmed);
     });
 
+    flushCodeBlock();
     flushBullets();
     flushParagraph();
 
@@ -169,19 +205,22 @@ export default function ReportModal({ graph }: ReportModalProps) {
         }
     };
 
+    const hasRenderedReport = !loading && !error && !!report;
+    const showIntroHeader = loading || !!error || hasRenderedReport;
+
     return (
         <div className="report-page">
-            <div className="report-page-header">
-                <div>
-                    <h2 className="report-page-title">CODEBASE INTELLIGENCE REPORT</h2>
-                    <p className="report-page-subtitle">
-                        Generate a senior-level architectural readout from the current dependency graph.
-                    </p>
-                </div>
+            {showIntroHeader && (
+                <div className="report-page-header">
+                    <div>
+                        <h2 className="report-page-title">CODEBASE INTELLIGENCE REPORT</h2>
+                        <p className="report-page-subtitle">
+                            Generate a senior-level architectural readout from the current dependency graph.
+                        </p>
+                    </div>
 
-                <div className="report-actions">
-                    {report && !loading && (
-                        <>
+                    {hasRenderedReport && (
+                        <div className="report-actions">
                             <button className="process-chart-btn" onClick={handleDownload}>
                                 Download .md
                             </button>
@@ -191,14 +230,17 @@ export default function ReportModal({ graph }: ReportModalProps) {
                             <button className="process-chart-btn" onClick={loadReport}>
                                 Regenerate
                             </button>
-                        </>
+                        </div>
                     )}
                 </div>
-            </div>
+            )}
 
             <div className="report-page-body">
                 {!loading && !error && !report && (
                     <div className="report-empty-state">
+                        <div className="report-empty-icon">⎙</div>
+                        <div className="report-empty-title">CODEBASE INTELLIGENCE REPORT</div>
+                        <div className="report-empty-subtitle">Generate a comprehensive architecture document</div>
                         <button className="report-generate-btn" onClick={loadReport}>
                             Generate Report
                         </button>
@@ -207,14 +249,14 @@ export default function ReportModal({ graph }: ReportModalProps) {
 
                 {loading && (
                     <div className="report-loading-panel">
-                        <div className="report-loading-headline">Generating intelligence report</div>
                         <div className="report-loading-steps">
                             {LOADING_STEPS.map((step, index) => (
                                 <div
                                     key={step}
                                     className={`report-loading-step ${index === loadingStepIndex ? 'active' : ''} ${index < loadingStepIndex ? 'complete' : ''}`}
                                 >
-                                    {step}
+                                    &gt; {step}
+                                    {index === loadingStepIndex && <span className="report-loading-cursor" aria-hidden="true" />}
                                 </div>
                             ))}
                         </div>
@@ -233,8 +275,10 @@ export default function ReportModal({ graph }: ReportModalProps) {
                 )}
 
                 {!loading && !error && report && (
-                    <div className="report-markdown report-page-markdown">
-                        {renderedReport}
+                    <div className="report-page-markdown-shell">
+                        <div className="report-markdown report-page-markdown">
+                            {renderedReport}
+                        </div>
                     </div>
                 )}
             </div>
