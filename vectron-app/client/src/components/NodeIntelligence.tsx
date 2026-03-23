@@ -132,30 +132,24 @@ export default function NodeIntelligence({ selectedNode, graph }: NodeIntelligen
     }, [graph, selectedNode]);
 
     const renderPills = (nodes: GraphNode[]) => {
-        const visibleNodes = nodes.slice(0, 4);
-        const hiddenCount = Math.max(0, nodes.length - visibleNodes.length);
-
         if (nodes.length === 0) {
             return <span className="node-intel-empty-inline">None</span>;
         }
 
         return (
-            <div className="node-intel-pill-row">
-                {visibleNodes.map((node) => (
-                    <span key={node.id} className="node-intel-pill">
-                        <span
-                            className="node-intel-pill-dot"
-                            style={{ backgroundColor: NODE_TYPE_COLORS[node.type] }}
-                            aria-hidden="true"
-                        />
-                        {node.label}
-                    </span>
-                ))}
-                {hiddenCount > 0 && (
-                    <span className="node-intel-pill node-intel-pill-more">
-                        +{hiddenCount} more
-                    </span>
-                )}
+            <div className="node-intel-pill-scroller">
+                <div className="node-intel-pill-row">
+                    {nodes.map((node) => (
+                        <span key={node.id} className="node-intel-pill" title={node.label}>
+                            <span
+                                className="node-intel-pill-dot"
+                                style={{ backgroundColor: NODE_TYPE_COLORS[node.type] }}
+                                aria-hidden="true"
+                            />
+                            <span className="node-intel-pill-text">{node.label}</span>
+                        </span>
+                    ))}
+                </div>
             </div>
         );
     };
