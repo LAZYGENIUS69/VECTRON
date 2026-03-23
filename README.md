@@ -18,6 +18,22 @@ The average developer spends **58% of their time understanding code, not writing
 
 ---
 
+## Screenshots
+
+### Graph View
+![Graph View](docs/screenshots/graph.png)
+
+### Blast Radius Simulation
+![Blast Radius](docs/screenshots/blast-radius.png)
+
+### Metrics Dashboard
+![Metrics](docs/screenshots/metrics.png)
+
+### AI Query
+![AI Query](docs/screenshots/ai-query.png)
+
+---
+
 ## Live Demo
 
 🔗 **[vectron-production.up.railway.app](https://vectron-production.up.railway.app)**
@@ -96,6 +112,64 @@ AI (without VECTRON):
 
 ---
 
+## How It Works
+
+```mermaid
+flowchart TD
+    A[ZIP Upload / GitHub URL] --> B[File Walker]
+    B --> C{File Type?}
+    C -->|JS/TS/JSX/TSX| D[Babel AST Parser]
+    C -->|Python| E[Regex Parser]
+    C -->|JSON/YAML| F[Config Parser]
+    C -->|Markdown| G[Doc Parser]
+    D --> H[Graph Builder]
+    E --> H
+    F --> H
+    G --> H
+    H --> I[(In-Memory Graph Store)]
+    I --> J[Sigma.js Renderer]
+    I --> K[Groq LLM]
+    I --> L[MCP Server :3002]
+    J --> M[ForceAtlas2 Layout]
+    M --> N[Interactive Graph]
+    K --> O[AI Query Response]
+    K --> P[Process Detection]
+    K --> Q[Intelligence Report]
+    L --> R[Claude Code]
+    L --> S[Cursor]
+    L --> T[Antigravity]
+```
+
+---
+
+## Performance
+
+| Codebase Size | Files | Parse Time | Nodes | Edges |
+|---------------|-------|------------|-------|-------|
+| Small | <50 files | ~2s | ~100 | ~200 |
+| Medium | 50-200 files | ~5s | ~500 | ~1000 |
+| Large | 200-500 files | ~10s | ~1300 | ~4000 |
+| XL | 500+ files | ~20s | ~2000+ | ~8000+ |
+
+---
+
+## Why VECTRON?
+
+| Feature | VECTRON | ChatGPT | GitHub Copilot |
+|---------|---------|---------|----------------|
+| Visual dependency graph | ✅ | ❌ | ❌ |
+| Blast radius simulation | ✅ | ❌ | ❌ |
+| Interactive graph exploration | ✅ | ❌ | ❌ |
+| MCP server for AI agents | ✅ | ❌ | ❌ |
+| Works on any size codebase | ✅ | ❌ (context limit) | ⚠️ |
+| Risk scoring | ✅ | ❌ | ❌ |
+| Process flow detection | ✅ | ❌ | ❌ |
+| No setup required | ✅ | ✅ | ❌ |
+| Self-hosted | ✅ | ❌ | ❌ |
+| Custom LLM support | ✅ | ❌ | ❌ |
+
+---
+
 ## Quick Start
 
 ### Web (Instant)
@@ -142,6 +216,43 @@ Get free API keys:
 | Process Diagrams | Mermaid.js |
 | MCP Protocol | @modelcontextprotocol/sdk |
 | Deployment | Railway |
+
+---
+
+## MCP Tools Reference
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `vectron_status` | none | Check if graph is loaded |
+| `vectron_blast_radius` | `nodeLabel: string, depth?: number` | Find all affected nodes |
+| `vectron_get_callers` | `nodeLabel: string` | Find everything that calls this node |
+| `vectron_get_dependencies` | `nodeLabel: string` | Find everything this node depends on |
+| `vectron_query` | `question: string` | Natural language codebase question |
+
+---
+
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/upload` | POST | Upload ZIP file for analysis |
+| `/api/clone` | POST | Analyze GitHub repo by URL |
+| `/api/query` | POST | AI natural language query |
+| `/api/processes` | POST | Detect process flows |
+| `/api/report` | POST | Generate intelligence report |
+| `/api/node-summary` | POST | Generate node-level AI summary |
+| `/api/file` | GET | Fetch cached file contents by path |
+| `/health` | GET | Server health check |
+
+---
+
+## Contributing Guide
+
+1. Fork the repo and create a feature branch.
+2. Run the client and server locally from `vectron-app/`.
+3. Keep changes scoped and verify with local builds before opening a PR.
+4. Document any new endpoints, MCP tools, or UI workflows in the README.
+5. Open a pull request with screenshots if the change affects the interface.
 
 ---
 
