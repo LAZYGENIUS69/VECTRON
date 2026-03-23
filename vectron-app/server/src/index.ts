@@ -14,7 +14,7 @@ import fetch from "node-fetch";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildGraph, GraphData } from "./graph-builder";
-import { setGraph } from "./graph-store";
+import { getGraph, setGraph } from "./graph-store";
 import { startMCPServer } from "./mcp-server";
 
 const app = express();
@@ -447,6 +447,10 @@ function computeReportStats(graphData: GraphData): ReportStats {
   };
 }
 
+function resolveGraphData(fallbackGraph?: GraphData | null): GraphData | null {
+  return getGraph() || fallbackGraph || null;
+}
+
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ limit: "500mb", extended: true }));
@@ -458,14 +462,15 @@ app.get("/health", (_req, res) => {
 app.post("/api/query", async (req, res) => {
   console.log("Query received:", req.body.question);
 
-  const { question, graphData, llmConfig } = req.body as {
+  const { question, graphData: requestGraphData, llmConfig } = req.body as {
     question: string;
-    graphData: GraphData;
+    graphData?: GraphData;
     llmConfig?: LLMConfigPayload;
   };
+  const graphData = resolveGraphData(requestGraphData);
 
   if (!question || !graphData) {
-    res.status(400).json({ error: "Missing question or graphData" });
+    res.status(400).json({ error: "No graph loaded" });
     return;
   }
 
@@ -587,10 +592,11 @@ Return exactly one sentence with no markdown and no bullets.`;
 });
 
 app.post("/api/processes", async (req, res) => {
-  const { graphData, focusNode } = req.body as { graphData: GraphData; focusNode?: string };
+  const { graphData: requestGraphData, focusNode } = req.body as { graphData?: GraphData; focusNode?: string };
+  const graphData = resolveGraphData(requestGraphData);
 
   if (!graphData) {
-    res.status(400).json({ error: "Missing graphData" });
+    res.status(400).json({ error: "No graph loaded" });
     return;
   }
 
@@ -655,10 +661,11 @@ Rules:
 });
 
 app.post("/api/report", async (req, res) => {
-  const { graphData } = req.body as { graphData: GraphData };
+  const { graphData: requestGraphData } = req.body as { graphData?: GraphData };
+  const graphData = resolveGraphData(requestGraphData);
 
   if (!graphData) {
-    res.status(400).json({ error: "Missing graphData" });
+    res.status(400).json({ error: "No graph loaded" });
     return;
   }
 
