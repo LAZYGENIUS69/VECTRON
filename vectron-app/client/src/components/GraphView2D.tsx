@@ -671,7 +671,7 @@ export default function GraphView2D({
         {([
           { ch: '+', fn: zoomIn, title: 'Zoom In', disabled: false },
           { ch: '−', fn: zoomOut, title: 'Zoom Out', disabled: false },
-          { ch: layoutPaused ? '▶' : '⏸', fn: toggleLayoutPause, title: layoutPaused ? 'Resume Layout' : 'Pause Layout', disabled: !computing && !layoutPaused },
+          { ch: layoutPaused ? '>' : '||', fn: toggleLayoutPause, title: layoutPaused ? 'Resume Layout' : 'Pause Layout', disabled: !computing && !layoutPaused },
         ] as const).map(b => (
           <button
             key={b.title}
