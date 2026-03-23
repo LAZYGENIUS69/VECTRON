@@ -8,6 +8,8 @@
 [![GitHub](https://img.shields.io/badge/GitHub-LAZYGENIUS69%2FVECTRON-white?style=flat-square&logo=github)](https://github.com/LAZYGENIUS69/VECTRON)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
+📖 [Architecture](docs/ARCHITECTURE.md) · 🔌 [MCP Guide](docs/MCP.md) · 🚀 [API Reference](docs/API.md) · 🤝 [Contributing](docs/CONTRIBUTING.md)
+
 ---
 
 ## What is VECTRON?
