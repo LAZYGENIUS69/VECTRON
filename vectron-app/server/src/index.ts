@@ -51,7 +51,7 @@ interface LLMProvider {
   call: () => Promise<string>;
 }
 
-type LLMProviderKey = "auto" | "openai" | "anthropic" | "groq" | "cerebras" | "custom";
+type LLMProviderKey = "auto" | "asi1" | "openai" | "anthropic" | "groq" | "cerebras" | "custom";
 
 interface LLMConfigPayload {
   provider: string;
@@ -75,6 +75,11 @@ interface LLMCompletionResponse {
   }>;
 }
 
+interface LLMCallResult {
+  content: string;
+  provider: string;
+}
+
 interface SourceFile {
   path: string;
   content: string;
@@ -94,6 +99,11 @@ function hasValidGroqApiKey(): boolean {
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_actual_key_here";
 }
 
+function hasValidASI1ApiKey(): boolean {
+  const apiKey = process.env.ASI1_API_KEY || "";
+  return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_asi1_key_here";
+}
+
 function hasValidCerebrasApiKey(): boolean {
   const apiKey = process.env.CEREBRAS_API_KEY || "";
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_key_here";
@@ -106,6 +116,7 @@ function isLLMProviderKey(value: string): value is LLMProviderKey {
 function formatProviderName(provider: string): string {
   const labels: Record<string, string> = {
     auto: "Auto",
+    asi1: "ASI-1",
     openai: "OpenAI",
     anthropic: "Anthropic",
     groq: "Groq",
@@ -128,6 +139,7 @@ function normalizeLLMConfig(config?: Partial<LLMConfigPayload> | null): CustomLL
   }
 
   const defaultModels: Record<Exclude<LLMProviderKey, "auto" | "custom">, string> = {
+    asi1: "asi1",
     openai: "gpt-4o",
     anthropic: "claude-sonnet-4-5",
     groq: "llama-3.3-70b-versatile",
@@ -152,8 +164,27 @@ function normalizeLLMConfig(config?: Partial<LLMConfigPayload> | null): CustomLL
   };
 }
 
-export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+export async function callLLM(systemPrompt: string, userMessage: string): Promise<LLMCallResult> {
   const providers: LLMProvider[] = [
+    {
+      name: "ASI-1",
+      isConfigured: hasValidASI1ApiKey(),
+      call: async () => {
+        const client = new OpenAI({
+          apiKey: process.env.ASI1_API_KEY,
+          baseURL: "https://api.asi1.ai/v1",
+        });
+        const res = await client.chat.completions.create({
+          model: "asi1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+          max_tokens: 2048,
+        });
+        return res.choices[0]?.message?.content ?? "";
+      },
+    },
     {
       name: "Groq",
       isConfigured: hasValidGroqApiKey(),
@@ -204,7 +235,10 @@ export async function callLLM(systemPrompt: string, userMessage: string): Promis
       }
 
       console.log(`[LLM] Success with ${provider.name}`);
-      return result;
+      return {
+        content: result,
+        provider: provider.name,
+      };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       failures.push(`${provider.name}: ${message}`);
@@ -224,7 +258,26 @@ async function callLLMWithConfig(
   systemPrompt: string,
   userMessage: string,
   config: CustomLLMConfig,
-): Promise<string> {
+): Promise<LLMCallResult> {
+  if (config.provider === "asi1") {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl || "https://api.asi1.ai/v1",
+    });
+    const res = await client.chat.completions.create({
+      model: config.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 1024,
+    });
+    return {
+      content: res.choices[0]?.message?.content ?? "",
+      provider: "ASI-1",
+    };
+  }
+
   if (config.provider === "openai" || config.provider === "custom") {
     const client = new OpenAI({
       apiKey: config.apiKey,
@@ -238,7 +291,10 @@ async function callLLMWithConfig(
       ],
       max_tokens: 1024,
     });
-    return res.choices[0]?.message?.content ?? "";
+    return {
+      content: res.choices[0]?.message?.content ?? "",
+      provider: formatProviderName(config.provider),
+    };
   }
 
   if (config.provider === "anthropic") {
@@ -249,7 +305,10 @@ async function callLLMWithConfig(
       messages: [{ role: "user", content: userMessage }],
       system: systemPrompt,
     });
-    return ((res.content[0] as { text?: string } | undefined)?.text ?? "");
+    return {
+      content: (res.content[0] as { text?: string } | undefined)?.text ?? "",
+      provider: "Anthropic",
+    };
   }
 
   if (config.provider === "groq") {
@@ -262,7 +321,10 @@ async function callLLMWithConfig(
       ],
       max_tokens: 1024,
     });
-    return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+    return {
+      content: (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "",
+      provider: "Groq",
+    };
   }
 
   if (config.provider === "cerebras") {
@@ -275,7 +337,10 @@ async function callLLMWithConfig(
       ],
       max_tokens: 1024,
     });
-    return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+    return {
+      content: (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "",
+      provider: "Cerebras",
+    };
   }
 
   throw new Error(`Unknown provider: ${config.provider}`);
@@ -370,6 +435,151 @@ function sanitizeProcesses(
       return { name, steps, explanation, mermaid };
     })
     .filter((process): process is ProcessDefinition => process !== null);
+}
+
+const PROCESS_EDGE_KINDS = new Set(["CALLS", "IMPORTS", "DEFINES"]);
+const PROCESS_KEYWORDS = [
+  "app",
+  "main",
+  "index",
+  "start",
+  "init",
+  "load",
+  "fetch",
+  "query",
+  "route",
+  "api",
+  "render",
+  "view",
+  "page",
+  "screen",
+  "upload",
+  "create",
+  "update",
+  "handle",
+  "submit",
+];
+
+function sanitizeMermaidLabel(label: string): string {
+  return label.replace(/[[\]"]/g, "").trim() || "Unknown";
+}
+
+function detectHeuristicProcesses(
+  graphData: GraphData,
+  minimumSteps: number,
+  focusNode?: string,
+): ProcessDefinition[] {
+  const nodeById = new Map(graphData.nodes.map((node) => [node.id, node]));
+  const outgoing = new Map<string, string[]>();
+  const incoming = new Map<string, string[]>();
+
+  graphData.nodes.forEach((node) => {
+    outgoing.set(node.id, []);
+    incoming.set(node.id, []);
+  });
+
+  graphData.edges.forEach((edge) => {
+    if (!PROCESS_EDGE_KINDS.has(edge.kind)) return;
+    outgoing.get(edge.source)?.push(edge.target);
+    incoming.get(edge.target)?.push(edge.source);
+  });
+
+  const scoreNode = (nodeId: string): number => {
+    const node = nodeById.get(nodeId);
+    if (!node) return 0;
+    const label = node.label.toLowerCase();
+    const keywordScore = PROCESS_KEYWORDS.reduce(
+      (sum, keyword) => sum + (label.includes(keyword) ? 6 : 0),
+      0,
+    );
+    const typeScore = node.type === "file" ? 8 : node.type === "function" || node.type === "method" ? 5 : 3;
+    return (
+      keywordScore +
+      typeScore +
+      (outgoing.get(nodeId)?.length ?? 0) * 3 +
+      (incoming.get(nodeId)?.length ?? 0)
+    );
+  };
+
+  const extendForward = (startId: string, maxSteps = 5): string[] => {
+    const visited = new Set<string>([startId]);
+    const path = [startId];
+    let currentId = startId;
+
+    while (path.length < maxSteps) {
+      const nextCandidates = (outgoing.get(currentId) ?? [])
+        .filter((candidateId) => !visited.has(candidateId))
+        .sort((a, b) => scoreNode(b) - scoreNode(a));
+
+      const nextId = nextCandidates[0];
+      if (!nextId) break;
+
+      path.push(nextId);
+      visited.add(nextId);
+      currentId = nextId;
+    }
+
+    return path;
+  };
+
+  const buildFocusedPath = (focusId: string, maxSteps = 5): string[] => {
+    const prefixCandidates = (incoming.get(focusId) ?? []).sort((a, b) => scoreNode(b) - scoreNode(a));
+    const prefix = prefixCandidates[0] ? [prefixCandidates[0]] : [];
+    const suffix = extendForward(focusId, maxSteps - prefix.length);
+    const combined = [...prefix, ...suffix];
+    return Array.from(new Set(combined)).slice(0, maxSteps);
+  };
+
+  const candidateIds = focusNode
+    ? graphData.nodes
+        .filter((node) => node.label === focusNode)
+        .map((node) => node.id)
+    : graphData.nodes
+        .filter((node) =>
+          ["file", "function", "method", "class", "python_function", "python_class"].includes(node.type),
+        )
+        .sort((a, b) => scoreNode(b.id) - scoreNode(a.id))
+        .slice(0, 12)
+        .map((node) => node.id);
+
+  const processes: ProcessDefinition[] = [];
+  const seenSignatures = new Set<string>();
+
+  for (const candidateId of candidateIds) {
+    const pathIds = focusNode ? buildFocusedPath(candidateId) : extendForward(candidateId);
+    if (pathIds.length < minimumSteps) continue;
+
+    const pathNodes = pathIds
+      .map((nodeId) => nodeById.get(nodeId))
+      .filter((node): node is NonNullable<typeof node> => !!node);
+
+    if (pathNodes.length < minimumSteps) continue;
+    if (focusNode && !pathNodes.some((node) => node.label === focusNode)) continue;
+
+    const signature = pathNodes.map((node) => node.label).join(">");
+    if (seenSignatures.has(signature)) continue;
+    seenSignatures.add(signature);
+
+    const startNode = pathNodes[0];
+    const mermaidLines = ["graph TD"];
+    pathNodes.forEach((node, index) => {
+      mermaidLines.push(`  N${index}[${sanitizeMermaidLabel(node.label)}]`);
+      if (index > 0) {
+        mermaidLines.push(`  N${index - 1} --> N${index}`);
+      }
+    });
+
+    processes.push({
+      name: `${sanitizeMermaidLabel(startNode.label)} Flow`,
+      steps: pathNodes.length,
+      explanation: `Heuristic flow beginning at ${startNode.label} and following the strongest reachable dependencies in the current graph.`,
+      mermaid: mermaidLines.join("\n"),
+    });
+
+    if (processes.length >= 6) break;
+  }
+
+  return processes;
 }
 
 function computeReportStats(graphData: GraphData): ReportStats {
@@ -508,19 +718,25 @@ You MUST respond with ONLY valid JSON, no markdown, no backticks:
     const customConfig = normalizeLLMConfig(llmConfig);
 
     let text: string;
+    let provider = "Unknown";
     if (customConfig) {
       try {
-        text = await callLLMWithConfig(systemPrompt, userMessage, customConfig);
+        const result = await callLLMWithConfig(systemPrompt, userMessage, customConfig);
+        text = result.content;
+        provider = result.provider;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error";
         res.json({
           explanation: `Your ${formatProviderName(customConfig.provider)} key returned an error: ${message}`,
           relevantNodes: [],
+          provider: formatProviderName(customConfig.provider),
         });
         return;
       }
     } else {
-      text = await callLLM(systemPrompt, userMessage);
+      const result = await callLLM(systemPrompt, userMessage);
+      text = result.content;
+      provider = result.provider;
     }
 
     try {
@@ -529,18 +745,20 @@ You MUST respond with ONLY valid JSON, no markdown, no backticks:
       res.json({
         explanation: parsed.explanation || "No explanation provided.",
         relevantNodes: parsed.relevantNodes || [],
+        provider,
       });
     } catch (parseErr) {
       console.error("[VECTRON] AI Parse error:", parseErr, "Raw text:", text);
       res.json({
         explanation: "Could not analyze codebase response. Please try again.",
         relevantNodes: [],
+        provider,
       });
     }
   } catch (err: unknown) {
     console.error("[LLM] Query error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    res.status(500).json({ explanation: `Query failed: ${message}`, relevantNodes: [] });
+    res.status(500).json({ explanation: `Query failed: ${message}`, relevantNodes: [], provider: "Unknown" });
   }
 });
 
@@ -580,7 +798,7 @@ OUTGOING CONNECTIONS (${outgoing.length}): ${outgoing.length > 0 ? outgoing.join
 
 Return exactly one sentence with no markdown and no bullets.`;
     const summary = await callLLM(systemPrompt, userMessage);
-    const normalized = summary.replace(/\s+/g, " ").trim();
+    const normalized = summary.content.replace(/\s+/g, " ").trim();
     const sentence = normalized.split(/(?<=[.!?])\s+/)[0] ?? normalized;
 
     res.json({ summary: sentence.trim() });
@@ -604,6 +822,7 @@ app.post("/api/processes", async (req, res) => {
     const summary = buildCompactGraphSummary(graphData);
     const smallCodebase = isSmallCodebase(graphData);
     const allowedLabels = new Set(graphData.nodes.map((node) => node.label));
+    const minimumSteps = smallCodebase ? 2 : 3;
     const systemPrompt = `You are an expert software architect. You have been given a dependency graph of a real codebase as nodes and edges.
 
 Analyze the graph and detect all meaningful processes - a process is a complete flow from a trigger point (user action, API call, event) through to an output or side effect.
@@ -632,29 +851,41 @@ Rules:
 - Detect 5-10 most important processes only
 - Only reference nodes that exist in the provided graph
 - Mermaid syntax must be valid - use graph TD format
-- Each process must have at least ${smallCodebase ? "2" : "3"} steps
+- Each process must have at least ${minimumSteps} steps
 - Process names must be human readable like 'File Upload Flow'
 - Never invent nodes that dont exist in the graph`;
 
     const text = await callLLM(systemPrompt, `GRAPH DATA:\n${summary}`);
 
     try {
-      const jsonStr = text.replace(/```json\n?|```/g, "").trim();
+      const jsonStr = text.content.replace(/```json\n?|```/g, "").trim();
       const parsed = JSON.parse(jsonStr);
       const processes = sanitizeProcesses(
         parsed.processes,
         allowedLabels,
-        smallCodebase ? 2 : 3,
+        minimumSteps,
         focusNode,
       );
-      console.log("Processes detected:", processes.length);
-      res.json({ processes });
+      const finalProcesses =
+        processes.length > 0 ? processes : detectHeuristicProcesses(graphData, minimumSteps, focusNode);
+      console.log("Processes detected:", finalProcesses.length);
+      res.json({ processes: finalProcesses });
     } catch (parseErr) {
-      console.error("[VECTRON] Process Parse error:", parseErr, "Raw text:", text);
-      res.json({ processes: [] });
+      console.error("[VECTRON] Process Parse error:", parseErr, "Raw text:", text.content);
+      const fallbackProcesses = detectHeuristicProcesses(graphData, minimumSteps, focusNode);
+      res.json({ processes: fallbackProcesses });
     }
   } catch (err: unknown) {
     console.error("[LLM] Process detection error:", err);
+    try {
+      const fallbackProcesses = detectHeuristicProcesses(graphData, isSmallCodebase(graphData) ? 2 : 3, focusNode);
+      if (fallbackProcesses.length > 0) {
+        res.json({ processes: fallbackProcesses });
+        return;
+      }
+    } catch (fallbackErr) {
+      console.error("[VECTRON] Heuristic process fallback failed:", fallbackErr);
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: `Process detection failed: ${message}`, processes: [] });
   }
@@ -715,7 +946,7 @@ Be specific, technical, and useful. Write like a senior engineer.`;
       `GRAPH DATA:\n${summary}\n\nEXACT STATS:\n- Total files parsed: ${stats.totalFiles}\n- Total functions detected: ${stats.totalFunctions}\n- Most connected component: ${stats.mostConnectedComponent} (${stats.mostConnectedDegree} connections)\n- Deepest dependency chain: ${stats.deepestDependencyChain} (${stats.deepestDependencyDepth} hops)`,
     );
 
-    res.json({ report: text.trim() });
+    res.json({ report: text.content.trim() });
   } catch (err: unknown) {
     console.error("Report generation error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";

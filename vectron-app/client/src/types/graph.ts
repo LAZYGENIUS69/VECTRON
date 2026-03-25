@@ -35,7 +35,7 @@ export interface DetectedProcess {
     mermaid: string;
 }
 
-export type LLMProvider = 'auto' | 'openai' | 'anthropic' | 'groq' | 'cerebras' | 'custom';
+export type LLMProvider = 'auto' | 'asi1' | 'openai' | 'anthropic' | 'groq' | 'cerebras' | 'custom';
 
 export interface LLMConfig {
     provider: LLMProvider;

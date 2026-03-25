@@ -56,7 +56,7 @@ Upload any JS/TS repo as a ZIP. No signup. No setup.
 Click any node in the graph. VECTRON instantly runs a BFS propagation to show every downstream dependency that breaks if you change it. Color-coded by impact depth — red is direct, orange is one hop, yellow is two hops.
 
 ### 🤖 AI Codebase Query
-Ask anything about your codebase in plain English. VECTRON sends a compressed graph summary to Groq (Llama 3.3 70B) and returns a precise answer with a call chain — while simultaneously highlighting the relevant nodes on the graph.
+Ask anything about your codebase in plain English. VECTRON sends a compressed graph summary to ASI-1 first, then falls back to Groq and Cerebras if needed, and returns a precise answer with a call chain while simultaneously highlighting the relevant nodes on the graph.
 
 ### 📊 Metrics Dashboard
 Risk scores, dependency hotspots, node type distribution, top 10 most connected nodes. Instantly identifies your most fragile code.
@@ -76,10 +76,10 @@ Click any node to instantly see its complete intelligence profile:
 Select any two nodes and VECTRON traces the exact execution path between them through the dependency graph. See how data flows from a user action all the way through to the output — every hop, every function call, every file transition visualized as a Mermaid flowchart.
 
 ### 📄 Codebase Intelligence Report
-One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by Groq + Cerebras fallback.
+One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by ASI-1 with Groq and Cerebras fallback.
 
 ### 🔧 Custom LLM Support
-Bring your own API key. Configure OpenAI, Anthropic, Groq, Cerebras, or any custom OpenAI-compatible endpoint directly in the UI.
+Bring your own API key. Configure ASI:One, OpenAI, Anthropic, Groq, Cerebras, or any custom OpenAI-compatible endpoint directly in the UI.
 
 ### 🧠 MCP Server — AI-Native Codebase Context
 **This is where VECTRON becomes truly powerful.**
@@ -136,7 +136,7 @@ flowchart TD
     G --> H
     H --> I[(In-Memory Graph Store)]
     I --> J[Sigma.js Renderer]
-    I --> K[Groq LLM]
+    I --> K[ASI-1 / Groq / Cerebras]
     I --> L[MCP Server :3002]
     J --> M[ForceAtlas2 Layout]
     M --> N[Interactive Graph]
@@ -200,14 +200,18 @@ http://localhost:3002/sse
 
 ### Environment Variables
 ```env
+ASI1_API_KEY=your_asi1_key_here
 GROQ_API_KEY=your_groq_key_here
 CEREBRAS_API_KEY=your_cerebras_key_here
 PORT=3001
 ```
 
 Get free API keys:
+- ASI-1: [asi1.ai](https://asi1.ai)
 - Groq: [console.groq.com](https://console.groq.com)
 - Cerebras: [inference.cerebras.ai](https://inference.cerebras.ai)
+
+For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` in the service environment variables before deploying.
 
 ---
 
@@ -219,8 +223,8 @@ Get free API keys:
 | Graph Rendering | Sigma.js + Graphology + ForceAtlas2 |
 | Backend | Express.js + Node.js |
 | AST Parsing | Babel (JS/TS/JSX/TSX) |
-| AI Primary | Groq — Llama 3.3 70B Versatile |
-| AI Fallback | Cerebras — Llama 3.1 8B |
+| AI Primary | ASI-1 — `asi1` |
+| AI Fallback | Groq, then Cerebras |
 | Process Diagrams | Mermaid.js |
 | MCP Protocol | @modelcontextprotocol/sdk |
 | Deployment | Railway |
@@ -280,7 +284,7 @@ graph TD
     H --> I[Risk Scoring]
     I --> G
 
-    D --> J[Groq LLM\nLlama 3.3 70B]
+    D --> J[ASI-1 LLM\nasi1]
     J --> K[AI Query]
     J --> L[Process Detection]
     J --> M[Intelligence Report]

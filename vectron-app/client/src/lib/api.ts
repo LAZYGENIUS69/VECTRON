@@ -123,7 +123,7 @@ export async function queryCodebase(
     graphData: GraphData,
     question: string,
     llmConfig?: LLMConfig,
-): Promise<{ explanation: string; relevantNodes: string[] }> {
+): Promise<{ explanation: string; relevantNodes: string[]; provider: string }> {
     const res = await fetchFromApi(`${BASE}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,11 +137,13 @@ export async function queryCodebase(
     const body = await res.json().catch(() => ({
         explanation: '',
         relevantNodes: [],
+        provider: '',
     }));
 
     return {
         explanation: typeof body.explanation === 'string' ? body.explanation : '',
         relevantNodes: Array.isArray(body.relevantNodes) ? body.relevantNodes : [],
+        provider: typeof body.provider === 'string' ? body.provider : '',
     };
 }
 

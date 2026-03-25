@@ -24,7 +24,8 @@ const DEFAULT_LLM_CONFIG: LLMConfig = {
 };
 
 const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
-    { value: 'auto', label: 'Auto (Groq \u2192 Cerebras)' },
+    { value: 'auto', label: 'Auto (ASI-1 \u2192 Groq \u2192 Cerebras)' },
+    { value: 'asi1', label: 'ASI:One' },
     { value: 'openai', label: 'OpenAI' },
     { value: 'anthropic', label: 'Anthropic' },
     { value: 'groq', label: 'Groq' },
@@ -34,6 +35,7 @@ const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
 
 const PROVIDER_LABELS: Record<LLMProvider, string> = {
     auto: 'Auto',
+    asi1: 'ASI-1',
     openai: 'OpenAI',
     anthropic: 'Anthropic',
     groq: 'Groq',
@@ -42,7 +44,8 @@ const PROVIDER_LABELS: Record<LLMProvider, string> = {
 };
 
 const MODEL_PLACEHOLDERS: Record<LLMProvider, string> = {
-    auto: 'llama-3.3-70b-versatile (default)',
+    auto: 'asi1 (default)',
+    asi1: 'asi1',
     openai: 'gpt-4o',
     anthropic: 'claude-sonnet-4-5',
     groq: 'llama-3.3-70b-versatile',
@@ -51,6 +54,7 @@ const MODEL_PLACEHOLDERS: Record<LLMProvider, string> = {
 };
 
 const DEFAULT_MODEL_VALUES: Record<Exclude<LLMProvider, 'auto' | 'custom'>, string> = {
+    asi1: 'asi1',
     openai: 'gpt-4o',
     anthropic: 'claude-sonnet-4-5',
     groq: 'llama-3.3-70b-versatile',
@@ -58,7 +62,7 @@ const DEFAULT_MODEL_VALUES: Record<Exclude<LLMProvider, 'auto' | 'custom'>, stri
 };
 
 function isLLMProvider(value: string): value is LLMProvider {
-    return ['auto', 'openai', 'anthropic', 'groq', 'cerebras', 'custom'].includes(value);
+    return ['auto', 'asi1', 'openai', 'anthropic', 'groq', 'cerebras', 'custom'].includes(value);
 }
 
 function normalizeConfig(raw?: Partial<LLMConfig> | null): LLMConfig {
@@ -91,7 +95,7 @@ function isCustomConfigActive(config: LLMConfig) {
 
 function getPoweredByLabel(config: LLMConfig) {
     if (!isCustomConfigActive(config) || config.provider === 'auto') {
-        return 'Groq (auto)';
+        return 'ASI-1 (auto)';
     }
 
     return `${PROVIDER_LABELS[config.provider]} (custom)`;
@@ -157,6 +161,7 @@ export default function QueryPanel({
     const [showApiKey, setShowApiKey] = useState(false);
     const [savedConfig, setSavedConfig] = useState<LLMConfig>(DEFAULT_LLM_CONFIG);
     const [draftConfig, setDraftConfig] = useState<LLMConfig>(DEFAULT_LLM_CONFIG);
+    const [lastProviderUsed, setLastProviderUsed] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -191,7 +196,10 @@ export default function QueryPanel({
         if (draftConfig.provider === 'custom' && !draftConfig.model.trim()) return false;
         return true;
     }, [draftConfig]);
-    const poweredByLabel = useMemo(() => getPoweredByLabel(savedConfig), [savedConfig]);
+    const poweredByLabel = useMemo(
+        () => lastProviderUsed || getPoweredByLabel(savedConfig),
+        [lastProviderUsed, savedConfig],
+    );
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -232,6 +240,7 @@ export default function QueryPanel({
 
         try {
             const data = await queryCodebase(graph, userQuestion, savedConfig);
+            setLastProviderUsed(data.provider || '');
             setHistory((prev) => [...prev, { role: 'ai', content: data.explanation }]);
 
             if (data.relevantNodes.length > 0) {
@@ -268,6 +277,7 @@ export default function QueryPanel({
         const nextConfig = normalizeConfig(draftConfig);
         setSavedConfig(nextConfig);
         setDraftConfig(nextConfig);
+        setLastProviderUsed('');
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
             provider: nextConfig.provider,
             apiKey: nextConfig.apiKey,
@@ -280,6 +290,7 @@ export default function QueryPanel({
     const handleClearConfig = () => {
         setSavedConfig(DEFAULT_LLM_CONFIG);
         setDraftConfig(DEFAULT_LLM_CONFIG);
+        setLastProviderUsed('');
         setShowApiKey(false);
         window.localStorage.removeItem(STORAGE_KEY);
         window.setTimeout(() => textareaRef.current?.focus(), 40);
@@ -377,6 +388,18 @@ export default function QueryPanel({
                                 className="ask-ai-settings-input"
                             />
                         </label>
+
+                        {draftConfig.provider === 'asi1' && (
+                            <label className="ask-ai-settings-field">
+                                <span>Base URL</span>
+                                <input
+                                    type="text"
+                                    value="https://api.asi1.ai/v1"
+                                    readOnly
+                                    className="ask-ai-settings-input"
+                                />
+                            </label>
+                        )}
 
                         {draftConfig.provider === 'custom' && (
                             <label className="ask-ai-settings-field">

@@ -178,7 +178,7 @@ server.tool(
 
     try {
       const answer = await callLLM(systemPrompt, userMessage);
-      return { content: [{ type: "text", text: answer }] };
+      return { content: [{ type: "text", text: answer.content }] };
     } catch {
       return { content: [{ type: "text", text: "Failed to query LLM." }] };
     }
