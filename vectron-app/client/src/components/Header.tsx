@@ -44,7 +44,7 @@ export default function Header({
                 {hasGraph && (
                     <div className="graph-badge">
                         <span>{nodeCount} nodes</span>
-                        <span className="badge-div">·</span>
+                        <span className="badge-div">|</span>
                         <span>{edgeCount} edges</span>
                     </div>
                 )}
@@ -98,3 +98,4 @@ export default function Header({
         </header>
     );
 }
+
