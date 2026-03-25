@@ -38,18 +38,14 @@ export default function Header({
                 <div className="header-brand">
                     <span className="header-brand-dot" />
                     <span className="header-brand-wordmark">VECTRON</span>
-                    {hasGraph && <span className="header-asi-badge">⚡ ASI:ONE</span>}
                     <span className="header-tagline">dependency propagation engine</span>
                 </div>
 
                 {hasGraph && (
-                    <div className="header-graph-meta">
-                        <div className="graph-badge">
-                            <span>{nodeCount} nodes</span>
-                            <span className="badge-div">·</span>
-                            <span>{edgeCount} edges</span>
-                        </div>
-                        <div className="header-powered-line">Analysis powered by ⚡ ASI:One</div>
+                    <div className="graph-badge">
+                        <span>{nodeCount} nodes</span>
+                        <span className="badge-div">·</span>
+                        <span>{edgeCount} edges</span>
                     </div>
                 )}
             </div>
