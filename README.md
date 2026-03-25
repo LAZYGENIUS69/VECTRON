@@ -78,8 +78,40 @@ Select any two nodes and VECTRON traces the exact execution path between them th
 ### 📄 Codebase Intelligence Report
 One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by ASI-1 with Groq and Cerebras fallback.
 
-### 🔧 Custom LLM Support
-Bring your own API key. Configure ASI:One, OpenAI, Anthropic, Groq, Cerebras, or any custom OpenAI-compatible endpoint directly in the UI.
+### ⚡ ASI:One Multi-Agent Analysis
+The most powerful feature in VECTRON. Powered exclusively by ASI:One's multi-agent orchestration system.
+
+Five specialized AI agents analyze your codebase simultaneously:
+
+🔴 Security Agent — identifies vulnerabilities, exposed endpoints, authentication gaps, and attack surface
+
+🔵 Architecture Agent — detects circular dependencies, coupling issues, separation of concerns violations, and design pattern problems
+
+🟡 Performance Agent — finds hot paths, bottlenecks, heavily called functions, and expensive dependency chains
+
+🟢 Code Quality Agent — flags dead code, god functions, duplication, and naming inconsistencies
+
+⚡ Onboarding Agent — generates a learning path, explains core data flows, and identifies the 5 most important files for new developers
+
+Each agent reasons independently using ASI:One's extended reasoning. Results are synthesized into a comprehensive multi-agent report.
+
+### 🤖 Custom LLM Configuration
+Bring your own API key. Configure any LLM provider directly in the UI:
+- ASI:One (default, primary)
+- OpenAI
+- Anthropic
+- Groq
+- Cerebras
+- Any OpenAI-compatible endpoint
+
+### 🔗 GitHub URL Analysis
+Paste any public GitHub repository URL directly — no ZIP download needed. VECTRON fetches and analyzes the repo instantly.
+
+### 💀 Dead Code Detector
+One click finds all nodes with zero incoming edges — potentially unused code that can be safely removed.
+
+### 🔗 Shareable Graph Links
+Generate a unique URL to share your dependency graph with anyone. Links expire after 24 hours.
 
 ### 🧠 MCP Server — AI-Native Codebase Context
 **This is where VECTRON becomes truly powerful.**
@@ -117,6 +149,26 @@ AI (without VECTRON):
 → misses 5 files
 → your build breaks
 ```
+
+---
+
+## Powered by ASI:One
+
+VECTRON uses ASI:One as its primary intelligence layer.
+
+ASI:One's unique capabilities enable:
+
+Multi-Agent Orchestration — 5 specialized agents run in parallel, each with domain expertise, reasoning independently before synthesizing results
+
+Extended Reasoning — deep multi-step analysis for the Intelligence Report, breaking down architectural decisions with intermediate validation steps
+
+Unified Intelligence — one model that automatically activates the right reasoning mode based on the task — fast inference for queries, extended reasoning for reports, agentic orchestration for analysis
+
+To use VECTRON with your own ASI:One key:
+1. Open the ASK AI tab
+2. Click the gear icon
+3. Select ASI:One as provider
+4. Enter your API key from api.asi1.ai
 
 ---
 
@@ -200,14 +252,15 @@ http://localhost:3002/sse
 
 ### Environment Variables
 ```env
-ASI1_API_KEY=your_asi1_key_here
 GROQ_API_KEY=your_groq_key_here
 CEREBRAS_API_KEY=your_cerebras_key_here
+ASI1_API_KEY=your_asi1_key_here
 PORT=3001
 ```
 
+Get your ASI:One API key free at: https://api.asi1.ai
+
 Get free API keys:
-- ASI-1: [asi1.ai](https://asi1.ai)
 - Groq: [console.groq.com](https://console.groq.com)
 - Cerebras: [inference.cerebras.ai](https://inference.cerebras.ai)
 
@@ -225,6 +278,9 @@ For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` 
 | AST Parsing | Babel (JS/TS/JSX/TSX) |
 | AI Primary | ASI-1 — `asi1` |
 | AI Fallback | Groq, then Cerebras |
+| ASI:One API | Primary AI provider — multi-agent orchestration |
+| Groq | Fallback LLM — Llama 3.3 70B |
+| Cerebras | Fallback LLM — Llama 3.1 8B |
 | Process Diagrams | Mermaid.js |
 | MCP Protocol | @modelcontextprotocol/sdk |
 | Deployment | Railway |
@@ -236,10 +292,10 @@ For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
 | `vectron_status` | none | Check if graph is loaded |
-| `vectron_blast_radius` | `nodeLabel: string, depth?: number` | Find all affected nodes |
-| `vectron_get_callers` | `nodeLabel: string` | Find everything that calls this node |
-| `vectron_get_dependencies` | `nodeLabel: string` | Find everything this node depends on |
-| `vectron_query` | `question: string` | Natural language codebase question |
+| `vectron_blast_radius` | `nodeLabel`, `depth?` | What breaks if I change this? |
+| `vectron_get_callers` | `nodeLabel` | What calls this function? |
+| `vectron_get_dependencies` | `nodeLabel` | What does this depend on? |
+| `vectron_query` | `question` | Natural language codebase question |
 
 ---
 
@@ -265,6 +321,12 @@ For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` 
 3. Keep changes scoped and verify with local builds before opening a PR.
 4. Document any new endpoints, MCP tools, or UI workflows in the README.
 5. Open a pull request with screenshots if the change affects the interface.
+
+---
+
+## What's Next
+
+- ASI:One Agentverse Integration — register custom VECTRON agents on the Agentverse marketplace for deeper orchestration
 
 ---
 
