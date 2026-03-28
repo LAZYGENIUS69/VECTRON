@@ -76,10 +76,7 @@ Click any node to instantly see its complete intelligence profile:
 Select any two nodes and VECTRON traces the exact execution path between them through the dependency graph. See how data flows from a user action all the way through to the output — every hop, every function call, every file transition visualized as a Mermaid flowchart.
 
 ### 📄 Codebase Intelligence Report
-One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by ASI-1 with Groq and Cerebras fallback.
-
-### ⚡ ASI:One Multi-Agent Analysis
-The most powerful feature in VECTRON. Powered exclusively by ASI:One's multi-agent orchestration system.
+One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by ASI-1 with Groq and Cerebras as fallback
 
 Five specialized AI agents analyze your codebase simultaneously:
 
@@ -93,7 +90,7 @@ Five specialized AI agents analyze your codebase simultaneously:
 
 ⚡ Onboarding Agent — generates a learning path, explains core data flows, and identifies the 5 most important files for new developers
 
-Each agent reasons independently using ASI:One's extended reasoning. Results are synthesized into a comprehensive multi-agent report.
+
 
 ### 🤖 Custom LLM Configuration
 Bring your own API key. Configure any LLM provider directly in the UI:
