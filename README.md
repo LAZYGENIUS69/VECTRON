@@ -276,7 +276,7 @@ For Railway, add `FEATHERLESS_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and 
 | Graph Rendering | Sigma.js + Graphology + ForceAtlas2 |
 | Backend | Express.js + Node.js |
 | AST Parsing | Babel (JS/TS/JSX/TSX) |
-| AI Primary | featherless.ai — `mistralai/Mistral-7B-Instruct-v0.3` |
+| AI Primary | featherless.ai — `Qwen/Qwen2.5-7B-Instruct` |
 | AI Fallback | Groq, then Cerebras |
 | featherless.ai API | Primary AI provider — multi-agent orchestration |
 | Groq | Fallback LLM — Llama 3.3 70B |
@@ -346,7 +346,7 @@ graph TD
     H --> I[Risk Scoring]
     I --> G
 
-    D --> J[featherless.ai LLM\nmistralai/Mistral-7B-Instruct-v0.3]
+    D --> J[featherless.ai LLM\nQwen/Qwen2.5-7B-Instruct]
     J --> K[AI Query]
     J --> L[Process Detection]
     J --> M[Intelligence Report]
@@ -367,3 +367,4 @@ graph TD
 ---
 
 *Made with obsession by [@LAZYGENIUS69](https://github.com/LAZYGENIUS69)*
+

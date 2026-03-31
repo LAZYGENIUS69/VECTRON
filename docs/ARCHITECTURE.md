@@ -22,7 +22,7 @@ flowchart TD
     G --> H
     H --> I[(In-Memory Graph Store)]
     I --> J[Sigma.js Renderer]
-    I --> K[Groq LLM]
+    I --> K[featherless.ai LLM]
     I --> L[MCP Server :3002]
     J --> M[ForceAtlas2 Layout]
     M --> N[Interactive Graph]
@@ -54,9 +54,10 @@ natively without WASM complexity.
 Sigma.js uses WebGL rendering - handles 2000+ nodes at 60fps.
 D3 SVG rendering struggles above 500 nodes.
 
-### Why Groq over OpenAI?
-Groq's LPU hardware delivers sub-second responses critical
-for real-time graph highlighting. Cerebras provides fallback.
+### Why featherless.ai as primary?
+featherless.ai provides the default inference layer for codebase
+queries and reports. Groq remains the fast fallback, with Cerebras
+as the final backup provider.
 
 ### Why in-memory over database?
 For single-session analysis, in-memory is faster and simpler.

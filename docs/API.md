@@ -25,6 +25,9 @@ Body:
 ```
 Returns: `{ "explanation": string, "relevantNodes": string[] }`
 
+Default provider order when no `llmConfig` is supplied:
+`featherless.ai -> Groq -> Cerebras`
+
 ## POST /api/processes
 Detect all process flows in the codebase.
 Body: `{ "graphData": GraphData }`

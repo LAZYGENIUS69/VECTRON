@@ -24,7 +24,8 @@ const DEFAULT_LLM_CONFIG: LLMConfig = {
 };
 
 const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
-    { value: 'auto', label: 'Auto (Groq \u2192 Cerebras)' },
+    { value: 'auto', label: 'Auto (featherless.ai \u2192 Groq \u2192 Cerebras)' },
+    { value: 'featherless', label: 'featherless.ai' },
     { value: 'openai', label: 'OpenAI' },
     { value: 'anthropic', label: 'Anthropic' },
     { value: 'groq', label: 'Groq' },
@@ -34,6 +35,7 @@ const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
 
 const PROVIDER_LABELS: Record<LLMProvider, string> = {
     auto: 'Auto',
+    featherless: 'featherless.ai',
     openai: 'OpenAI',
     anthropic: 'Anthropic',
     groq: 'Groq',
@@ -42,7 +44,8 @@ const PROVIDER_LABELS: Record<LLMProvider, string> = {
 };
 
 const MODEL_PLACEHOLDERS: Record<LLMProvider, string> = {
-    auto: 'llama-3.3-70b-versatile (default)',
+    auto: 'Qwen/Qwen2.5-7B-Instruct (default)',
+    featherless: 'Qwen/Qwen2.5-7B-Instruct',
     openai: 'gpt-4o',
     anthropic: 'claude-sonnet-4-5',
     groq: 'llama-3.3-70b-versatile',
@@ -51,6 +54,7 @@ const MODEL_PLACEHOLDERS: Record<LLMProvider, string> = {
 };
 
 const DEFAULT_MODEL_VALUES: Record<Exclude<LLMProvider, 'auto' | 'custom'>, string> = {
+    featherless: 'Qwen/Qwen2.5-7B-Instruct',
     openai: 'gpt-4o',
     anthropic: 'claude-sonnet-4-5',
     groq: 'llama-3.3-70b-versatile',
@@ -58,7 +62,7 @@ const DEFAULT_MODEL_VALUES: Record<Exclude<LLMProvider, 'auto' | 'custom'>, stri
 };
 
 function isLLMProvider(value: string): value is LLMProvider {
-    return ['auto', 'openai', 'anthropic', 'groq', 'cerebras', 'custom'].includes(value);
+    return ['auto', 'featherless', 'openai', 'anthropic', 'groq', 'cerebras', 'custom'].includes(value);
 }
 
 function normalizeConfig(raw?: Partial<LLMConfig> | null): LLMConfig {

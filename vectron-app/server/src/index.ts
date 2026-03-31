@@ -19,6 +19,13 @@ import { startMCPServer } from "./mcp-server";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1";
+const DEFAULT_FEATHERLESS_MODEL =
+  process.env.FEATHERLESS_MODEL || "Qwen/Qwen2.5-7B-Instruct";
+const featherlessClient = new OpenAI({
+  apiKey: process.env.FEATHERLESS_API_KEY,
+  baseURL: FEATHERLESS_BASE_URL,
+});
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const cerebrasClient = new Cerebras({ apiKey: process.env.CEREBRAS_API_KEY });
 
@@ -69,7 +76,14 @@ interface LLMProvider {
   call: () => Promise<string>;
 }
 
-type LLMProviderKey = "auto" | "openai" | "anthropic" | "groq" | "cerebras" | "custom";
+type LLMProviderKey =
+  | "auto"
+  | "featherless"
+  | "openai"
+  | "anthropic"
+  | "groq"
+  | "cerebras"
+  | "custom";
 
 interface LLMConfigPayload {
   provider: string;
@@ -118,6 +132,11 @@ function isSmallCodebase(graphData: GraphData): boolean {
   return graphData.nodes.length < 200;
 }
 
+function hasValidFeatherlessApiKey(): boolean {
+  const apiKey = process.env.FEATHERLESS_API_KEY || "";
+  return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_featherless_key_here";
+}
+
 function hasValidGroqApiKey(): boolean {
   const apiKey = process.env.GROQ_API_KEY || "";
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_actual_key_here";
@@ -129,12 +148,15 @@ function hasValidCerebrasApiKey(): boolean {
 }
 
 function isLLMProviderKey(value: string): value is LLMProviderKey {
-  return ["auto", "openai", "anthropic", "groq", "cerebras", "custom"].includes(value);
+  return ["auto", "featherless", "openai", "anthropic", "groq", "cerebras", "custom"].includes(
+    value,
+  );
 }
 
 function formatProviderName(provider: string): string {
   const labels: Record<string, string> = {
     auto: "Auto",
+    featherless: "featherless.ai",
     openai: "OpenAI",
     anthropic: "Anthropic",
     groq: "Groq",
@@ -157,6 +179,7 @@ function normalizeLLMConfig(config?: Partial<LLMConfigPayload> | null): CustomLL
   }
 
   const defaultModels: Record<Exclude<LLMProviderKey, "auto" | "custom">, string> = {
+    featherless: DEFAULT_FEATHERLESS_MODEL,
     openai: "gpt-4o",
     anthropic: "claude-sonnet-4-5",
     groq: "llama-3.3-70b-versatile",
@@ -187,6 +210,24 @@ export async function callLLM(
   options: LLMCallOptions = {},
 ): Promise<LLMCallResult> {
   const providers: LLMProvider[] = [
+    {
+      name: "featherless.ai",
+      isConfigured: hasValidFeatherlessApiKey(),
+      call: async () => {
+        const res = await featherlessClient.chat.completions.create({
+          model: DEFAULT_FEATHERLESS_MODEL,
+          messages: [
+            { role: "system" as const, content: systemPrompt },
+            { role: "user" as const, content: userMessage },
+          ],
+          max_tokens: options.maxTokens ?? 2048,
+          ...(typeof options.primaryTemperature === "number"
+            ? { temperature: options.primaryTemperature }
+            : { temperature: 0.3 }),
+        });
+        return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
+      },
+    },
     {
       name: "Groq",
       isConfigured: hasValidGroqApiKey(),
@@ -264,6 +305,25 @@ async function callLLMWithConfig(
   config: CustomLLMConfig,
   options: LLMCallOptions = {},
 ): Promise<LLMCallResult> {
+  if (config.provider === "featherless") {
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: FEATHERLESS_BASE_URL,
+    });
+    const res = await client.chat.completions.create({
+      model: config.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: options.maxTokens ?? 1024,
+    });
+    return {
+      content: res.choices[0]?.message?.content ?? "",
+      provider: "featherless.ai",
+    };
+  }
+
   if (config.provider === "openai" || config.provider === "custom") {
     const client = new OpenAI({
       apiKey: config.apiKey,
