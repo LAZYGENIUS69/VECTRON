@@ -21,7 +21,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1";
 const DEFAULT_FEATHERLESS_MODEL =
-  process.env.FEATHERLESS_MODEL || "Qwen/Qwen2.5-7B-Instruct";
+  process.env.FEATHERLESS_MODEL || "meta-llama/Llama-3.3-70B-Instruct";
 const featherlessClient = new OpenAI({
   apiKey: process.env.FEATHERLESS_API_KEY,
   baseURL: FEATHERLESS_BASE_URL,
