@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { cloneGithubRepo, uploadZip } from '../lib/api';
+import { useEffect, useRef, useState, useCallback, type ChangeEvent } from 'react';
+import { cloneGithubRepo, uploadZip, uploadZipFromPath } from '../lib/api';
 import type { GraphData } from '../types/graph';
 
 interface UploadZoneProps {
@@ -32,10 +32,12 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
     const [loadingMode, setLoadingMode] = useState<LoadingMode>(null);
     const [loadingStepIndex, setLoadingStepIndex] = useState(0);
     const [githubUrl, setGithubUrl] = useState('');
+    const [zipPath, setZipPath] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const isLoading = loadingMode !== null;
     const canAnalyzeGithub = githubUrl.trim().length > 0 && !isLoading;
+    const canAnalyzeZipPath = zipPath.trim().length > 0 && !isLoading;
 
     useEffect(() => {
         if (loadingMode !== 'github') {
@@ -48,6 +50,7 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                 if (current >= GITHUB_LOADING_STEPS.length - 1) {
                     return current;
                 }
+
                 return current + 1;
             });
         }, 1100);
@@ -56,7 +59,7 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
     }, [loadingMode]);
 
     const handleFile = useCallback(async (file: File) => {
-        if (!file.name.endsWith('.zip')) {
+        if (!file.name.toLowerCase().endsWith('.zip')) {
             setError('Please upload a .zip file.');
             return;
         }
@@ -89,6 +92,32 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
         }
     }, [githubUrl, onGraph]);
 
+    const handleZipSelection = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        const input = event.currentTarget;
+        const file = input.files?.[0];
+
+        // Reset immediately so the same ZIP can be picked again after an error.
+        input.value = '';
+
+        if (file) {
+            void handleFile(file);
+        }
+    }, [handleFile]);
+
+    const handleZipPathAnalyze = useCallback(async () => {
+        setError(null);
+        setLoadingMode('zip');
+
+        try {
+            const graph = await uploadZipFromPath(zipPath.trim());
+            onGraph(graph);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Upload failed');
+        } finally {
+            setLoadingMode(null);
+        }
+    }, [onGraph, zipPath]);
+
     const currentGithubStep = GITHUB_LOADING_STEPS[loadingStepIndex];
 
     return (
@@ -96,12 +125,8 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
             <input
                 ref={inputRef}
                 type="file"
-                accept=".zip"
                 style={{ display: 'none' }}
-                onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleFile(f);
-                }}
+                onChange={handleZipSelection}
             />
 
             <div className={`upload-box ${dragging ? 'drag' : ''} ${mode === 'github' ? 'is-form' : ''}`}>
@@ -142,8 +167,10 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                         onDrop={(e) => {
                             e.preventDefault();
                             setDragging(false);
-                            const f = e.dataTransfer.files[0];
-                            if (f) handleFile(f);
+                            const file = e.dataTransfer.files[0];
+                            if (file) {
+                                void handleFile(file);
+                            }
                         }}
                     >
                         <div className="upload-icon">
@@ -151,7 +178,7 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                                     <div className="spinner" />
                                 </div>
-                            ) : '↑'}
+                            ) : '^'}
                         </div>
 
                         <div className="upload-title">
@@ -160,9 +187,34 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                         <div className="upload-sub">
                             {loadingMode === 'zip'
                                 ? 'Building knowledge graph from AST'
-                                : 'Drag & drop a .zip file or click to browse'}
+                                : 'Drag and drop a .zip file or click to browse'}
                         </div>
-                        <div className="upload-hint">Supports JS · TS · JSX · TSX · PY · JSON · YAML · MD</div>
+                        {!isLoading && (
+                            <div className="upload-sub" style={{ marginTop: 10 }}>
+                                If the Windows picker hangs in Downloads, drag the ZIP here instead.
+                            </div>
+                        )}
+                        <input
+                            type="text"
+                            className="upload-github-input"
+                            value={zipPath}
+                            onChange={(event) => setZipPath(event.target.value)}
+                            placeholder="Or paste a local ZIP path, for example C:\\Users\\abhay\\Downloads\\repo.zip"
+                            disabled={isLoading}
+                            onClick={(event) => event.stopPropagation()}
+                        />
+                        <button
+                            type="button"
+                            className="upload-analyze-btn"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                void handleZipPathAnalyze();
+                            }}
+                            disabled={!canAnalyzeZipPath}
+                        >
+                            {loadingMode === 'zip' ? 'PARSING ZIP...' : 'ANALYZE LOCAL ZIP PATH'}
+                        </button>
+                        <div className="upload-hint">Supports JS | TS | JSX | TSX | PY | JSON | YAML | MD</div>
                     </div>
                 ) : (
                     <div className="upload-pane upload-pane-form">
@@ -171,7 +223,7 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                                     <div className="spinner" />
                                 </div>
-                            ) : '↗'}
+                            ) : '->'}
                         </div>
 
                         <div className="upload-title">
@@ -204,7 +256,7 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                                     {currentGithubStep}
                                 </>
                             ) : (
-                                'ANALYZE REPOSITORY →'
+                                'ANALYZE REPOSITORY ->'
                             )}
                         </button>
 

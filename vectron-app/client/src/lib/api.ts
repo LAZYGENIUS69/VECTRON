@@ -80,6 +80,20 @@ export async function uploadZip(file: File): Promise<GraphData> {
     return res.json() as Promise<GraphData>;
 }
 
+export async function uploadZipFromPath(zipPath: string): Promise<GraphData> {
+    const res = await fetchFromApi(`${BASE}/upload-path`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zipPath }),
+    });
+
+    if (!res.ok) {
+        throw await buildApiError(res);
+    }
+
+    return res.json() as Promise<GraphData>;
+}
+
 export async function cloneGithubRepo(githubUrl: string): Promise<GraphData> {
     const res = await fetchFromApi(`${BASE}/clone`, {
         method: 'POST',

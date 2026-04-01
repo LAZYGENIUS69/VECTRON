@@ -209,6 +209,7 @@ export async function callLLM(
   userMessage: string,
   options: LLMCallOptions = {},
 ): Promise<LLMCallResult> {
+  const maxTokens = options.maxTokens ?? 4000;
   const providers: LLMProvider[] = [
     {
       name: "featherless.ai",
@@ -220,7 +221,7 @@ export async function callLLM(
             { role: "system" as const, content: systemPrompt },
             { role: "user" as const, content: userMessage },
           ],
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: maxTokens,
           ...(typeof options.primaryTemperature === "number"
             ? { temperature: options.primaryTemperature }
             : { temperature: 0.3 }),
@@ -238,7 +239,7 @@ export async function callLLM(
             { role: "system" as const, content: systemPrompt },
             { role: "user" as const, content: userMessage },
           ],
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: maxTokens,
           ...(typeof options.primaryTemperature === "number"
             ? { temperature: options.primaryTemperature }
             : { temperature: 0.3 }),
@@ -256,7 +257,7 @@ export async function callLLM(
             { role: "system" as const, content: systemPrompt },
             { role: "user" as const, content: userMessage },
           ],
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: maxTokens,
         });
         return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
       },
@@ -305,6 +306,7 @@ async function callLLMWithConfig(
   config: CustomLLMConfig,
   options: LLMCallOptions = {},
 ): Promise<LLMCallResult> {
+  const maxTokens = options.maxTokens ?? 4000;
   if (config.provider === "featherless") {
     const client = new OpenAI({
       apiKey: config.apiKey,
@@ -316,7 +318,7 @@ async function callLLMWithConfig(
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      max_tokens: options.maxTokens ?? 1024,
+      max_tokens: maxTokens,
     });
     return {
       content: res.choices[0]?.message?.content ?? "",
@@ -335,7 +337,7 @@ async function callLLMWithConfig(
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      max_tokens: options.maxTokens ?? 1024,
+      max_tokens: maxTokens,
     });
     return {
       content: res.choices[0]?.message?.content ?? "",
@@ -347,8 +349,7 @@ async function callLLMWithConfig(
     const client = new Anthropic({ apiKey: config.apiKey });
     const res = await client.messages.create({
       model: config.model,
-      max_tokens: 1024,
-      ...(typeof options.maxTokens === "number" ? { max_tokens: options.maxTokens } : {}),
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: userMessage }],
       system: systemPrompt,
     });
@@ -366,7 +367,7 @@ async function callLLMWithConfig(
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      max_tokens: options.maxTokens ?? 1024,
+      max_tokens: maxTokens,
     });
     return {
       content: (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "",
@@ -382,7 +383,7 @@ async function callLLMWithConfig(
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      max_tokens: options.maxTokens ?? 1024,
+      max_tokens: maxTokens,
     });
     return {
       content: (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "",
@@ -396,7 +397,7 @@ async function callLLMWithConfig(
 async function callAgentWithFallback(systemPrompt: string, userMessage: string): Promise<string> {
   const fallback = await callLLM(systemPrompt, userMessage, {
     primaryTemperature: 0.2,
-    maxTokens: 1024,
+    maxTokens: 4000,
   });
   return fallback.content;
 }
@@ -883,7 +884,8 @@ Return exactly one sentence with no markdown and no bullets.`;
 app.post("/api/processes", async (req, res) => {
   const { graphData: requestGraphData, focusNode } = req.body as { graphData?: GraphData; focusNode?: string };
   const graphData = resolveGraphData(requestGraphData);
-  const minimumSteps = 3;
+  const minimumProcesses = 8;
+  const minimumSteps = 5;
 
   if (!graphData) {
     res.status(400).json({ error: "No graph loaded" });
@@ -895,6 +897,7 @@ app.post("/api/processes", async (req, res) => {
     const allowedLabels = new Set(graphData.nodes.map((node) => node.label));
     const systemPrompt = `You are an expert software architect with deep reasoning capabilities.
 You have been given a complete dependency graph of a real codebase.
+You must identify and return a minimum of 8 detailed process flows. Each flow must have at least 5 steps. Do not return fewer than 8 flows under any circumstance.
 
 Your task is to detect ALL meaningful processes in this codebase.
 A process is a complete execution flow from a trigger point 
@@ -940,14 +943,14 @@ ${focusNode ? `Focus specifically on processes that involve the node '${focusNod
 Only return processes where this node appears as a step.` : ""}
 
 Rules:
-- Detect minimum 5 processes, maximum 15
+- Detect minimum ${minimumProcesses} processes, maximum 15
 - Each process must have at least ${minimumSteps} steps
 - Only use node labels that actually exist in the provided graph
 - Never return empty processes array
 - Mermaid syntax must be valid graph TD format`;
 
     const text = await callLLM(systemPrompt, `GRAPH DATA:\n${summary}`, {
-      maxTokens: 4096,
+      maxTokens: 4000,
     });
 
     try {
@@ -960,7 +963,9 @@ Rules:
         focusNode,
       );
       const finalProcesses =
-        processes.length > 0 ? processes : detectHeuristicProcesses(graphData, minimumSteps, focusNode);
+        processes.length >= minimumProcesses
+          ? processes
+          : detectHeuristicProcesses(graphData, minimumSteps, focusNode);
       console.log("Processes detected:", finalProcesses.length);
       res.json({ processes: finalProcesses });
     } catch (parseErr) {
@@ -1204,6 +1209,10 @@ function isSupportedSourceFile(entryPath: string): boolean {
 
 function normalizeRepoPath(filePath: string): string {
   return filePath.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function isZipPath(filePath: string): boolean {
+  return filePath.trim().toLowerCase().endsWith(".zip");
 }
 
 function parseGitHubRepo(input: string): { owner: string; repo: string } {
@@ -1484,6 +1493,53 @@ app.post("/api/upload", (req, res) => {
       res.status(500).json({ error: `Processing failed: ${message}` });
     }
   });
+});
+
+app.post("/api/upload-path", async (req, res) => {
+  const { zipPath } = req.body as { zipPath?: string };
+  const trimmedPath = zipPath?.trim();
+
+  if (!trimmedPath) {
+    res.status(400).json({ error: "Please enter a ZIP file path" });
+    return;
+  }
+
+  if (!isZipPath(trimmedPath)) {
+    res.status(400).json({ error: "Please provide a .zip file path" });
+    return;
+  }
+
+  try {
+    const stats = await fs.stat(trimmedPath);
+
+    if (!stats.isFile()) {
+      res.status(400).json({ error: "The provided path is not a file" });
+      return;
+    }
+
+    if (stats.size > MAX_UPLOAD_BYTES) {
+      res.status(413).json({
+        error: `ZIP file is too large. Upload a file smaller than ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB.`,
+      });
+      return;
+    }
+
+    const zipBuffer = await fs.readFile(trimmedPath);
+    const sourceFiles = collectSourceFilesFromZip(new AdmZip(zipBuffer));
+
+    if (sourceFiles.length === 0) {
+      res.status(422).json({
+        error: "No supported JS, TS, Python, JSON, YAML, or Markdown files found in the zip",
+      });
+      return;
+    }
+
+    res.json(processSourceFiles(sourceFiles));
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[VECTRON] Upload path error:", message);
+    res.status(500).json({ error: `Processing failed: ${message}` });
+  }
 });
 
 app.post("/api/clone", async (req, res) => {
