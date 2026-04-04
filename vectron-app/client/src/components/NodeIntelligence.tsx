@@ -229,7 +229,9 @@ export default function NodeIntelligence({ selectedNode, graph }: NodeIntelligen
                         <span className="spinner" />
                     </div>
                 ) : (
-                    <p className="node-intel-summary">{summary}</p>
+                    <div className="node-intel-summary-scroll">
+                        <p className="node-intel-summary">{summary}</p>
+                    </div>
                 )}
             </div>
         </section>
