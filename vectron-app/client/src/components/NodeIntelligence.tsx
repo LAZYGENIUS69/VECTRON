@@ -158,7 +158,10 @@ export default function NodeIntelligence({ selectedNode, graph }: NodeIntelligen
         return (
             <section className="node-intelligence">
                 <div className="node-intel-empty">
-                    Click any node to inspect
+                    <div className="empty-state empty-state-fill">
+                        <strong>No node selected</strong>
+                        <span>Select a node in the graph to inspect dependencies, risk, and AI summary.</span>
+                    </div>
                 </div>
             </section>
         );
@@ -226,7 +229,7 @@ export default function NodeIntelligence({ selectedNode, graph }: NodeIntelligen
                         <span className="spinner" />
                     </div>
                 ) : (
-                    <p className="node-intel-summary">"{summary}"</p>
+                    <p className="node-intel-summary">{summary}</p>
                 )}
             </div>
         </section>

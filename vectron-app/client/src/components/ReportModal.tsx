@@ -200,7 +200,7 @@ export default function ReportModal({ graph }: ReportModalProps) {
             await navigator.clipboard.writeText(report);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1500);
-        } catch (err) {
+        } catch {
             setError('Could not copy report to clipboard.');
         }
     };
@@ -238,9 +238,11 @@ export default function ReportModal({ graph }: ReportModalProps) {
             <div className="report-page-body">
                 {!loading && !error && !report && (
                     <div className="report-empty-state">
-                        <div className="report-empty-icon">⎙</div>
+                        <div className="report-empty-icon" aria-hidden="true">[ ]</div>
                         <div className="report-empty-title">CODEBASE INTELLIGENCE REPORT</div>
-                        <div className="report-empty-subtitle">Generate a comprehensive architecture document</div>
+                        <div className="report-empty-subtitle">
+                            Generate a comprehensive architecture document with dependency insights, risk signals, and recommendations.
+                        </div>
                         <button className="report-generate-btn" onClick={loadReport}>
                             Generate Report
                         </button>

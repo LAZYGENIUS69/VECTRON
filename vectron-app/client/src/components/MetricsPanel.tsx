@@ -18,12 +18,14 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 export default function MetricsPanel({
-    metrics, selectedLabel, vectronMode,
-    totalNodes, totalEdges, crossModuleEdgesTotal,
+    metrics,
+    selectedLabel,
+    vectronMode,
+    totalNodes,
+    totalEdges,
+    crossModuleEdgesTotal,
     onTraceProcesses,
 }: MetricsPanelProps) {
-
-    // Graph overview — always visible when graph is loaded
     const graphOverview = (
         <div className="panel-section">
             <div className="panel-label">Graph Overview</div>
@@ -50,8 +52,9 @@ export default function MetricsPanel({
                 {graphOverview}
                 <div className="panel-section">
                     <div className="panel-label">Simulation</div>
-                    <div className="empty-state" style={{ height: 'auto', padding: 0 }}>
-                        <span style={{ fontSize: 12 }}>Enable VECTRON simulation mode to analyze blast radius</span>
+                    <div className="empty-state empty-state-compact">
+                        <strong>Simulation is currently off.</strong>
+                        <span>Enable VECTRON simulation mode to analyze blast radius and propagation depth.</span>
                     </div>
                 </div>
             </>
@@ -64,21 +67,18 @@ export default function MetricsPanel({
                 {graphOverview}
                 <div className="panel-section">
                     <div className="panel-label">Blast Radius</div>
-                    <div className="empty-state" style={{ height: 'auto', padding: 0 }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                            Click any node to simulate structural impact
-                        </span>
+                    <div className="empty-state empty-state-compact">
+                        <strong>No node selected yet.</strong>
+                        <span>Click any node in the graph to simulate structural impact.</span>
                     </div>
                 </div>
             </>
         );
     }
 
-    // Compute max depth for the depth bar
     const maxD = metrics.cascadeDepth || 1;
     const depthLayers = Array.from({ length: maxD + 1 }, (_, i) => i);
 
-    // Count nodes per layer
     const layerCounts = new Map<number, number>();
     for (const [, depth] of metrics.depthMap) {
         layerCounts.set(depth, (layerCounts.get(depth) ?? 0) + 1);
@@ -101,7 +101,7 @@ export default function MetricsPanel({
                         className="trace-process-btn"
                         onClick={onTraceProcesses}
                     >
-                        [ Trace Processes -&gt; ]
+                        Trace Processes -&gt;
                     </button>
                 )}
 
@@ -124,7 +124,6 @@ export default function MetricsPanel({
                     </div>
                 </div>
 
-                {/* Risk score */}
                 <div className="risk-score-row">
                     <span className="risk-score-label">Risk Score</span>
                     <span className="risk-score-value" style={{ color: RISK_COLORS[metrics.riskLevel] }}>
@@ -132,10 +131,9 @@ export default function MetricsPanel({
                     </span>
                 </div>
 
-                {/* Depth bar */}
                 <div className="depth-bar-section">
                     <div className="panel-label" style={{ marginBottom: 6 }}>Propagation Layers</div>
-                    {depthLayers.map(d => {
+                    {depthLayers.map((d) => {
                         const count = layerCounts.get(d) ?? 0;
                         const pct = metrics.impactedNodes > 0
                             ? (count / metrics.impactedNodes) * 100
@@ -164,13 +162,17 @@ export default function MetricsPanel({
                 </div>
 
                 <span className={`risk-badge risk-${metrics.riskLevel}`}>
-                    <span style={{
-                        width: 6, height: 6, borderRadius: '50%',
-                        background: RISK_COLORS[metrics.riskLevel],
-                        display: 'inline-block',
-                        flexShrink: 0,
-                    }} />
-                    {metrics.riskLevel} RISK — {metrics.impactedNodes} node{metrics.impactedNodes !== 1 ? 's' : ''}
+                    <span
+                        style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: RISK_COLORS[metrics.riskLevel],
+                            display: 'inline-block',
+                            flexShrink: 0,
+                        }}
+                    />
+                    {metrics.riskLevel} RISK - {metrics.impactedNodes} node{metrics.impactedNodes !== 1 ? 's' : ''}
                 </span>
             </div>
         </>

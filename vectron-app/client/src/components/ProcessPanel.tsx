@@ -13,8 +13,8 @@ mermaid.initialize({
         primaryColor: '#00D9FF',
         primaryTextColor: '#ffffff',
         lineColor: '#00D9FF',
-        background: '#0d1117'
-    }
+        background: '#0d1117',
+    },
 });
 
 const MermaidChart = ({ chart }: { chart: string }) => {
@@ -102,7 +102,7 @@ export default function ProcessPanel({ graph, selectedNode = null }: ProcessPane
             await navigator.clipboard.writeText(selectedProcess.mermaid);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1500);
-        } catch (err) {
+        } catch {
             setError('Could not copy Mermaid syntax to the clipboard.');
         }
     };
@@ -178,9 +178,14 @@ export default function ProcessPanel({ graph, selectedNode = null }: ProcessPane
 
                     {!error && processes.length === 0 && !loading && (
                         <div className="process-empty">
-                            {selectedNode
-                                ? 'Processes for the selected node will appear here automatically.'
-                                : 'Run detection to generate process flow diagrams from the current graph.'}
+                            <div className="empty-state empty-state-fill">
+                                <strong>{selectedNode ? 'No focused processes detected yet' : 'No process diagrams yet'}</strong>
+                                <span>
+                                    {selectedNode
+                                        ? 'Processes for the selected node will appear here after the next detection run.'
+                                        : 'Run detection to generate process flow diagrams from the current graph.'}
+                                </span>
+                            </div>
                         </div>
                     )}
 
@@ -228,7 +233,10 @@ export default function ProcessPanel({ graph, selectedNode = null }: ProcessPane
                     </>
                 ) : (
                     <div className="process-main-empty">
-                        Select a process to inspect
+                        <div className="empty-state empty-state-fill">
+                            <strong>Select a process to inspect</strong>
+                            <span>Choose a detected flow from the left to view its diagram and explanation.</span>
+                        </div>
                     </div>
                 )}
             </section>

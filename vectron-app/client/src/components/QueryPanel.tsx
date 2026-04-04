@@ -24,22 +24,13 @@ const DEFAULT_LLM_CONFIG: LLMConfig = {
 };
 
 const PROVIDER_OPTIONS: Array<{ value: LLMProvider; label: string }> = [
-    { value: 'auto', label: 'Auto (Groq \u2192 Cerebras)' },
+    { value: 'auto', label: 'Auto (Groq -> Cerebras)' },
     { value: 'openai', label: 'OpenAI' },
     { value: 'anthropic', label: 'Anthropic' },
     { value: 'groq', label: 'Groq' },
     { value: 'cerebras', label: 'Cerebras' },
     { value: 'custom', label: 'Custom' },
 ];
-
-const PROVIDER_LABELS: Record<LLMProvider, string> = {
-    auto: 'Auto',
-    openai: 'OpenAI',
-    anthropic: 'Anthropic',
-    groq: 'Groq',
-    cerebras: 'Cerebras',
-    custom: 'Custom',
-};
 
 const MODEL_PLACEHOLDERS: Record<LLMProvider, string> = {
     auto: 'llama-3.3-70b-versatile (default)',
@@ -149,7 +140,7 @@ export default function QueryPanel({
     const [showApiKey, setShowApiKey] = useState(false);
     const [savedConfig, setSavedConfig] = useState<LLMConfig>(DEFAULT_LLM_CONFIG);
     const [draftConfig, setDraftConfig] = useState<LLMConfig>(DEFAULT_LLM_CONFIG);
-    const [lastProviderUsed, setLastProviderUsed] = useState('');
+    const [, setLastProviderUsed] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -184,6 +175,7 @@ export default function QueryPanel({
         if (draftConfig.provider === 'custom' && !draftConfig.model.trim()) return false;
         return true;
     }, [draftConfig]);
+
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -231,7 +223,7 @@ export default function QueryPanel({
                 onQueryResult(data.relevantNodes);
                 setHasResult(true);
             }
-        } catch (error) {
+        } catch {
             setHistory((prev) => [
                 ...prev,
                 { role: 'ai', content: 'ERROR: Could not analyze codebase. Ensure the backend is running.' },
@@ -281,9 +273,8 @@ export default function QueryPanel({
 
     const emptyState = useMemo(() => (
         <div className="query-empty-state">
-            {"// SYSTEM READY..."}
-            <br />
-            Ask a structural question to inspect call chains, dependencies, and impact paths.
+            <strong>// SYSTEM READY</strong>
+            <span>Ask a structural question to inspect call chains, dependencies, and impact paths.</span>
         </div>
     ), []);
 
@@ -397,7 +388,7 @@ export default function QueryPanel({
                             className="ask-ai-reset-btn"
                             onClick={handleClearConfig}
                         >
-                            Clear &amp; Use Default
+                            Clear and Use Default
                         </button>
                     </div>
                 )}
@@ -436,6 +427,7 @@ export default function QueryPanel({
 
                     {loading && (
                         <div className="query-loading">
+                            <span className="spinner" aria-hidden="true" />
                             <span className="query-loading-label">ANALYZING...</span>
                             <span className="query-loading-dots" aria-hidden="true">
                                 <span />
@@ -462,7 +454,7 @@ export default function QueryPanel({
                             className="query-send-btn ask-ai-send-btn"
                             disabled={loading || !question.trim()}
                         >
-                            &rarr;
+                            -&gt;
                         </button>
                     </form>
                 </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { fetchFile } from '../lib/api';
@@ -17,7 +17,6 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
     const [error, setError] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Fetch file content when fileId changes
     useEffect(() => {
         if (!fileId) {
             setCode(null);
@@ -39,10 +38,11 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
             }
         }
         load();
-        return () => { ignore = true; };
+        return () => {
+            ignore = true;
+        };
     }, [fileId]);
 
-    // Scroll to startLine when code or startLine changes
     useEffect(() => {
         if (!code || !startLine || !containerRef.current) return;
         setTimeout(() => {
@@ -54,7 +54,6 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
         }, 50);
     }, [code, startLine]);
 
-    // Escape key to close
     useEffect(() => {
         if (!isOpen) return;
         const handleKey = (e: KeyboardEvent) => {
@@ -70,48 +69,15 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
 
     return (
         <>
-            {/* Dark overlay */}
             <div
+                className="code-inspector-overlay"
                 onClick={onClose}
-                style={{
-                    position: 'fixed', inset: 0,
-                    background: 'rgba(0, 0, 0, 0.7)',
-                    zIndex: 999,
-                }}
+                aria-hidden="true"
             />
 
-            {/* Modal */}
-            <div style={{
-                position: 'fixed',
-                top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 720, maxWidth: '90vw',
-                height: '70vh',
-                background: '#0D1117',
-                border: '1px solid rgba(0, 217, 255, 0.2)',
-                borderRadius: 8,
-                zIndex: 1000,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,217,255,0.08)',
-            }}>
-                {/* Header */}
-                <div style={{
-                    height: 48, minHeight: 48,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0 16px',
-                    background: 'rgba(0, 217, 255, 0.05)',
-                    borderBottom: '1px solid rgba(0, 217, 255, 0.1)',
-                }}>
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        gap: 4,
-                        minWidth: 0,
-                        maxWidth: 'calc(100% - 48px)',
-                    }}>
+            <div className="code-inspector-modal" role="dialog" aria-modal="true" aria-label="Code inspector">
+                <div className="code-inspector-header">
+                    <div className="code-inspector-header-main">
                         <div className="code-inspector-back-nav">
                             <button className="back-nav-btn" onClick={onClose}>
                                 <span className="back-nav-btn-icon" aria-hidden="true">
@@ -120,80 +86,42 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
                                 <span className="back-nav-btn-label">Close file</span>
                             </button>
                         </div>
-                        <span style={{
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontSize: 13,
-                            color: '#00d9ff',
-                            fontWeight: 500,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '100%',
-                        }}>
+                        <span className="code-inspector-filename">
                             {filename ?? 'Code Inspector'}
                         </span>
                     </div>
 
-                    {/* Close button */}
                     <button
                         onClick={onClose}
                         title="Close (Esc)"
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'rgba(255,255,255,0.5)',
-                            cursor: 'pointer',
-                            fontSize: 20,
-                            lineHeight: 1,
-                            padding: '4px 8px',
-                            borderRadius: 4,
-                            transition: 'color 0.15s',
-                            flexShrink: 0,
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
+                        className="code-inspector-close"
                     >
-                        ×
+                        X
                     </button>
                 </div>
 
-                {/* Body — scrollable code */}
                 <div
                     ref={containerRef}
-                    style={{
-                        flex: 1,
-                        overflow: 'auto',
-                        background: '#0D1117',
-                    }}
+                    className="code-inspector-body"
                 >
                     {loading && (
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            height: '100%', color: 'rgba(255,255,255,0.35)',
-                            fontFamily: 'monospace', fontSize: 13,
-                        }}>
-                            <div className="spinner" />
+                        <div className="code-inspector-state">
+                            <span className="spinner" />
                         </div>
                     )}
 
                     {error && (
-                        <div style={{
-                            padding: 24,
-                            color: '#f87171',
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontSize: 12,
-                        }}>
+                        <div className="code-inspector-error">
                             {error}
                         </div>
                     )}
 
                     {!fileId && !loading && (
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            height: '100%', color: 'rgba(255,255,255,0.25)',
-                            fontSize: 13, fontFamily: 'monospace',
-                        }}>
-                            Select a node to inspect code
+                        <div className="code-inspector-state">
+                            <div className="empty-state empty-state-fill">
+                                <strong>No file selected</strong>
+                                <span>Select a node with source code to inspect its contents here.</span>
+                            </div>
                         </div>
                     )}
 
@@ -217,7 +145,7 @@ export default function CodeInspector({ fileId, startLine, endLine, isOpen, onCl
                             }}
                             customStyle={{
                                 margin: 0,
-                                padding: '12px 0',
+                                padding: '16px 0',
                                 background: 'transparent',
                                 fontSize: '12px',
                                 fontFamily: 'JetBrains Mono, monospace',

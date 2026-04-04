@@ -146,12 +146,12 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                             if (f) handleFile(f);
                         }}
                     >
-                        <div className="upload-icon">
+                        <div className="upload-icon" aria-hidden="true">
                             {loadingMode === 'zip' ? (
                                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                                     <div className="spinner" />
                                 </div>
-                            ) : '↑'}
+                            ) : '^'}
                         </div>
 
                         <div className="upload-title">
@@ -160,18 +160,18 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                         <div className="upload-sub">
                             {loadingMode === 'zip'
                                 ? 'Building knowledge graph from AST'
-                                : 'Drag & drop a .zip file or click to browse'}
+                                : 'Drag and drop a .zip file or click to browse'}
                         </div>
-                        <div className="upload-hint">Supports JS · TS · JSX · TSX · PY · JSON · YAML · MD</div>
+                        <div className="upload-hint">Supports JS / TS / JSX / TSX / PY / JSON / YAML / MD</div>
                     </div>
                 ) : (
                     <div className="upload-pane upload-pane-form">
-                        <div className="upload-icon">
+                        <div className="upload-icon" aria-hidden="true">
                             {loadingMode === 'github' ? (
                                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                                     <div className="spinner" />
                                 </div>
-                            ) : '↗'}
+                            ) : '>'}
                         </div>
 
                         <div className="upload-title">
@@ -204,7 +204,7 @@ export default function UploadZone({ onGraph }: UploadZoneProps) {
                                     {currentGithubStep}
                                 </>
                             ) : (
-                                'ANALYZE REPOSITORY →'
+                                'ANALYZE REPOSITORY ->'
                             )}
                         </button>
 

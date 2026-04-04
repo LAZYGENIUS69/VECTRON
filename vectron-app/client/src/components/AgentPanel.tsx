@@ -19,11 +19,11 @@ const AGENT_ACCENTS: Record<AgentKey, string> = {
 };
 
 const LOADING_AGENTS = [
-    { key: 'security', title: 'Security Analysis', icon: '🔴' },
-    { key: 'architecture', title: 'Architecture Review', icon: '🔵' },
-    { key: 'performance', title: 'Performance Audit', icon: '🟡' },
-    { key: 'quality', title: 'Code Quality', icon: '🟢' },
-    { key: 'onboarding', title: 'Onboarding Guide', icon: '⚡' },
+    { key: 'security', title: 'Security Analysis', icon: 'SEC' },
+    { key: 'architecture', title: 'Architecture Review', icon: 'ARC' },
+    { key: 'performance', title: 'Performance Audit', icon: 'PERF' },
+    { key: 'quality', title: 'Code Quality', icon: 'QA' },
+    { key: 'onboarding', title: 'Onboarding Guide', icon: 'ONB' },
 ] as const;
 
 function extractBadge(content: string) {
@@ -144,7 +144,7 @@ export default function AgentPanel({ graph }: AgentPanelProps) {
                 <p className="agent-panel-copy">
                     5 specialized AI agents analyze your codebase simultaneously.
                     Security, Architecture, Performance, Code Quality, and Onboarding
-                    {' '}— each focused on a different engineering perspective.
+                    {' '}each focused on a different engineering perspective.
                 </p>
                 <button type="button" className="agent-launch-btn" onClick={handleLaunch}>
                     LAUNCH AGENT ANALYSIS

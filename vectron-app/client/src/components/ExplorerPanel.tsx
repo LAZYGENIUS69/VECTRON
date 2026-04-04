@@ -40,11 +40,11 @@ function buildTree(fileNodes: GraphNode[]): ExplorerDir {
                     type: 'file',
                     name: part,
                     path: currentPath,
-                    node
+                    node,
                 });
             } else {
                 let nextDir = current.children.find(
-                    (child) => child.type === 'dir' && child.name === part
+                    (child) => child.type === 'dir' && child.name === part,
                 ) as ExplorerDir | undefined;
 
                 if (!nextDir) {
@@ -93,7 +93,7 @@ function filterTree(dir: ExplorerDir, query: string): ExplorerDir {
 
     return {
         ...dir,
-        children: filteredChildren
+        children: filteredChildren,
     };
 }
 
@@ -141,7 +141,7 @@ function DirNode({
     level,
     query,
     focusedFileId,
-    onFileClick
+    onFileClick,
 }: {
     dir: ExplorerDir;
     level: number;
@@ -188,7 +188,7 @@ function DirNode({
                                 focusedFileId={focusedFileId}
                                 onFileClick={onFileClick}
                             />
-                        )
+                        ),
                     )}
                 </div>
             )}
@@ -200,7 +200,7 @@ function FileNode({
     file,
     level,
     focusedFileId,
-    onFileClick
+    onFileClick,
 }: {
     file: ExplorerFile;
     level: number;
@@ -249,9 +249,7 @@ export default function ExplorerPanel({ nodes, focusedFileId, onFileClick }: Exp
         <div className="explorer-tree-container">
             <div className="explorer-search-shell">
                 <label className="explorer-search">
-                    <span className="explorer-search-icon" aria-hidden="true">
-                        ⌕
-                    </span>
+                    <span className="explorer-search-icon" aria-hidden="true">?</span>
                     <input
                         type="text"
                         value={query}
@@ -282,10 +280,13 @@ export default function ExplorerPanel({ nodes, focusedFileId, onFileClick }: Exp
                                 focusedFileId={focusedFileId}
                                 onFileClick={onFileClick}
                             />
-                        )
+                        ),
                     )
                 ) : (
-                    <div className="explorer-empty-state">No files match this search.</div>
+                    <div className="explorer-empty-state">
+                        <strong>No files match this search.</strong>
+                        <span>Try a broader filename, path fragment, or extension.</span>
+                    </div>
                 )}
             </div>
         </div>
