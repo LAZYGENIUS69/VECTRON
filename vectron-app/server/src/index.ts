@@ -128,6 +128,21 @@ function hasValidCerebrasApiKey(): boolean {
   return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_key_here";
 }
 
+function hasValidGlmApiKey(): boolean {
+  const apiKey = process.env.GLM_API_KEY || "";
+  return !!apiKey && apiKey !== "PASTE_YOUR_KEY_HERE" && apiKey !== "your_key_here";
+}
+
+function getActiveProviderOrder(): Array<"glm" | "groq" | "cerebras"> {
+  const activeProvider = (process.env.ACTIVE_PROVIDER || "").trim().toLowerCase();
+
+  if (activeProvider === "glm") {
+    return ["glm", "groq", "cerebras"];
+  }
+
+  return ["groq", "cerebras"];
+}
+
 function isLLMProviderKey(value: string): value is LLMProviderKey {
   return ["auto", "openai", "anthropic", "groq", "cerebras", "custom"].includes(value);
 }
@@ -186,8 +201,38 @@ export async function callLLM(
   userMessage: string,
   options: LLMCallOptions = {},
 ): Promise<LLMCallResult> {
-  const providers: LLMProvider[] = [
-    {
+  const glmPrompt = systemPrompt.trim()
+    ? `${systemPrompt.trim()}\n\n${userMessage}`
+    : userMessage;
+
+  const providerMap: Record<"glm" | "groq" | "cerebras", LLMProvider> = {
+    glm: {
+      name: "GLM-5",
+      isConfigured: hasValidGlmApiKey(),
+      call: async () => {
+        const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.GLM_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "glm-5",
+            messages: [{ role: "user", content: glmPrompt }],
+            max_tokens: options.maxTokens ?? 4000,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText || "GLM request failed"}`);
+        }
+
+        const data = (await response.json()) as LLMCompletionResponse;
+        return data.choices?.[0]?.message?.content ?? "";
+      },
+    },
+    groq: {
       name: "Groq",
       isConfigured: hasValidGroqApiKey(),
       call: async () => {
@@ -205,7 +250,7 @@ export async function callLLM(
         return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
       },
     },
-    {
+    cerebras: {
       name: "Cerebras",
       isConfigured: hasValidCerebrasApiKey(),
       call: async () => {
@@ -220,7 +265,9 @@ export async function callLLM(
         return (res as LLMCompletionResponse).choices?.[0]?.message?.content ?? "";
       },
     },
-  ];
+  };
+
+  const providers = getActiveProviderOrder().map((providerKey) => providerMap[providerKey]);
   const failures: string[] = [];
 
   for (const provider of providers) {
