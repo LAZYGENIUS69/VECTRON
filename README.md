@@ -56,7 +56,7 @@ Upload any JS/TS repo as a ZIP. No signup. No setup.
 Click any node in the graph. VECTRON instantly runs a BFS propagation to show every downstream dependency that breaks if you change it. Color-coded by impact depth — red is direct, orange is one hop, yellow is two hops.
 
 ### 🤖 AI Codebase Query
-Ask anything about your codebase in plain English. VECTRON sends a compressed graph summary to ASI-1 first, then falls back to Groq and Cerebras if needed, and returns a precise answer with a call chain while simultaneously highlighting the relevant nodes on the graph.
+Ask anything about your codebase in plain English. VECTRON sends a compressed graph summary to GLM 5.1 first, then falls back to Groq and Cerebras if needed, and returns a precise answer with a call chain while simultaneously highlighting the relevant nodes on the graph.
 
 ### 📊 Metrics Dashboard
 Risk scores, dependency hotspots, node type distribution, top 10 most connected nodes. Instantly identifies your most fragile code.
@@ -76,10 +76,10 @@ Click any node to instantly see its complete intelligence profile:
 Select any two nodes and VECTRON traces the exact execution path between them through the dependency graph. See how data flows from a user action all the way through to the output — every hop, every function call, every file transition visualized as a Mermaid flowchart.
 
 ### 📄 Codebase Intelligence Report
-One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by ASI-1 with Groq and Cerebras fallback.
+One click generates a full architecture document — executive summary, component breakdown, risk assessment, onboarding guide. Powered by GLM 5.1 with Groq and Cerebras fallback.
 
-### ⚡ ASI:One Multi-Agent Analysis
-The most powerful feature in VECTRON. Powered exclusively by ASI:One's multi-agent orchestration system.
+### ⚡ GLM 5.1 Multi-Agent Analysis
+The most powerful feature in VECTRON. Powered by GLM 5.1 as the primary reasoning layer.
 
 Five specialized AI agents analyze your codebase simultaneously:
 
@@ -93,11 +93,11 @@ Five specialized AI agents analyze your codebase simultaneously:
 
 ⚡ Onboarding Agent — generates a learning path, explains core data flows, and identifies the 5 most important files for new developers
 
-Each agent reasons independently using ASI:One's extended reasoning. Results are synthesized into a comprehensive multi-agent report.
+Each agent reasons independently using GLM 5.1's extended reasoning. Results are synthesized into a comprehensive multi-agent report.
 
 ### 🤖 Custom LLM Configuration
 Bring your own API key. Configure any LLM provider directly in the UI:
-- ASI:One (default, primary)
+- GLM 5.1 (default, primary)
 - OpenAI
 - Anthropic
 - Groq
@@ -152,11 +152,11 @@ AI (without VECTRON):
 
 ---
 
-## Powered by ASI:One
+## Powered by GLM 5.1
 
-VECTRON uses ASI:One as its primary intelligence layer.
+VECTRON uses GLM 5.1 as its primary intelligence layer.
 
-ASI:One's unique capabilities enable:
+GLM 5.1's unique capabilities enable:
 
 Multi-Agent Orchestration — 5 specialized agents run in parallel, each with domain expertise, reasoning independently before synthesizing results
 
@@ -164,11 +164,11 @@ Extended Reasoning — deep multi-step analysis for the Intelligence Report, bre
 
 Unified Intelligence — one model that automatically activates the right reasoning mode based on the task — fast inference for queries, extended reasoning for reports, agentic orchestration for analysis
 
-To use VECTRON with your own ASI:One key:
+To use VECTRON with your own GLM 5.1 key:
 1. Open the ASK AI tab
 2. Click the gear icon
-3. Select ASI:One as provider
-4. Enter your API key from api.asi1.ai
+3. Select GLM 5.1 as provider
+4. Enter your API key from the GLM platform
 
 ---
 
@@ -188,7 +188,7 @@ flowchart TD
     G --> H
     H --> I[(In-Memory Graph Store)]
     I --> J[Sigma.js Renderer]
-    I --> K[ASI-1 / Groq / Cerebras]
+    I --> K[GLM 5.1 / Groq / Cerebras]
     I --> L[MCP Server :3002]
     J --> M[ForceAtlas2 Layout]
     M --> N[Interactive Graph]
@@ -254,17 +254,17 @@ http://localhost:3002/sse
 ```env
 GROQ_API_KEY=your_groq_key_here
 CEREBRAS_API_KEY=your_cerebras_key_here
-ASI1_API_KEY=your_asi1_key_here
+GLM_API_KEY=your_glm_key_here
 PORT=3001
 ```
 
-Get your ASI:One API key free at: https://api.asi1.ai
+Get your GLM 5.1 API key from your GLM provider dashboard.
 
 Get free API keys:
 - Groq: [console.groq.com](https://console.groq.com)
 - Cerebras: [inference.cerebras.ai](https://inference.cerebras.ai)
 
-For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` in the service environment variables before deploying.
+For Railway, add `GLM_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `ACTIVE_PROVIDER`, and `PORT` in the service environment variables before deploying.
 
 ---
 
@@ -276,9 +276,9 @@ For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` 
 | Graph Rendering | Sigma.js + Graphology + ForceAtlas2 |
 | Backend | Express.js + Node.js |
 | AST Parsing | Babel (JS/TS/JSX/TSX) |
-| AI Primary | ASI-1 — `asi1` |
+| AI Primary | GLM 5.1 — `glm-5.1` |
 | AI Fallback | Groq, then Cerebras |
-| ASI:One API | Primary AI provider — multi-agent orchestration |
+| GLM 5.1 API | Primary AI provider |
 | Groq | Fallback LLM — Llama 3.3 70B |
 | Cerebras | Fallback LLM — Llama 3.1 8B |
 | Process Diagrams | Mermaid.js |
@@ -326,7 +326,7 @@ For Railway, add `ASI1_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `PORT` 
 
 ## What's Next
 
-- ASI:One Agentverse Integration — register custom VECTRON agents on the Agentverse marketplace for deeper orchestration
+- GLM 5.1 workflow expansion — deepen orchestration and analysis flows around the primary model path
 
 ---
 
@@ -346,7 +346,7 @@ graph TD
     H --> I[Risk Scoring]
     I --> G
 
-    D --> J[ASI-1 LLM\nasi1]
+    D --> J[GLM 5.1 LLM\nglm-5.1]
     J --> K[AI Query]
     J --> L[Process Detection]
     J --> M[Intelligence Report]
