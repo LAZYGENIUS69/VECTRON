@@ -5,7 +5,7 @@
 > ChatGPT can explain a function. VECTRON shows what breaks when that function changes.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-vectron--production.up.railway.app-00D9FF?style=flat-square)](https://vectron-production.up.railway.app)
-[![GitHub](https://img.shields.io/badge/GitHub-LAZYGENIUS69%2FVECTRON-white?style=flat-square&logo=github)](https://github.com/LAZYGENIUS69/VECTRON)
+<span title="Source available on request"><img src="https://img.shields.io/badge/GitHub-LAZYGENIUS69%2FVECTRON-lightgrey?style=flat-square&logo=github" alt="GitHub repository unavailable" style="opacity:0.72;cursor:default;" /></span>
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 [Architecture](docs/ARCHITECTURE.md) · [MCP Guide](docs/MCP.md) · [API Reference](docs/API.md) · [Contributing](docs/CONTRIBUTING.md)
