@@ -19,8 +19,6 @@ import { startMCPServer } from "./mcp-server";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const cerebrasClient = new Cerebras({ apiKey: process.env.CEREBRAS_API_KEY });
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_SOURCE_FILES = 2500;
@@ -236,6 +234,7 @@ export async function callLLM(
       name: "Groq",
       isConfigured: hasValidGroqApiKey(),
       call: async () => {
+        const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
         const res = await groqClient.chat.completions.create({
           model: "llama-3.3-70b-versatile",
           messages: [
@@ -254,6 +253,7 @@ export async function callLLM(
       name: "Cerebras",
       isConfigured: hasValidCerebrasApiKey(),
       call: async () => {
+        const cerebrasClient = new Cerebras({ apiKey: process.env.CEREBRAS_API_KEY });
         const res = await cerebrasClient.chat.completions.create({
           model: "llama3.1-8b",
           messages: [
@@ -719,7 +719,29 @@ function resolveGraphData(fallbackGraph?: GraphData | null): GraphData | null {
   return getGraph() || fallbackGraph || null;
 }
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+const defaultCorsOrigins = [
+  "http://localhost:5173",
+  railwayPublicDomain ? `https://${railwayPublicDomain}` : "",
+  railwayPublicDomain ? `http://${railwayPublicDomain}` : "",
+];
+const allowedOrigins = (process.env.CORS_ORIGIN || defaultCorsOrigins.join(","))
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
+  }),
+);
 app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
