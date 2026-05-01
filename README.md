@@ -44,7 +44,7 @@ The average developer spends **58% of their time understanding code, not writing
 
 ## Live Demo
 
-🔗 **[vectron-production.up.railway.app](https://vectron-production-3480.up.railway.app/)**
+🔗 **(https://vectron-production-3480.up.railway.app/)**
 
 Upload any JS/TS repo as a ZIP. No signup. No setup.
 
