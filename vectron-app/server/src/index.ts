@@ -727,6 +727,10 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "landing.html"));
+});
+
 app.post("/api/query", async (req, res) => {
   console.log("Query received:", req.body.question);
 
@@ -1538,10 +1542,6 @@ app.get("/api/file", (req, res) => {
   }
 
   res.json({ path: filePath, content });
-});
-
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "landing.html"));
 });
 
 app.use("/app", express.static(path.join(__dirname, "../../client/dist")));
