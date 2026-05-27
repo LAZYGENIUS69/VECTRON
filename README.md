@@ -233,7 +233,7 @@ flowchart TD
 ## Quick Start
 
 ### Web (Instant)
-Visit **[vectron-production.up.railway.app](https://vectron-production.up.railway.app)** and upload a ZIP.
+Visit **[vectron-app.vercel.app)** and upload a ZIP.
 
 ### Local + MCP Setup
 ```bash
