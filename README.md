@@ -4,7 +4,7 @@
 > "ChatGPT can tell you what a function does.  
 > VECTRON shows you what breaks when you change it."
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-vectron--production.up.railway.app-00D9FF?style=flat-square)](https://vectron-production.up.railway.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-vectron-app.vercel.app)
 [![GitHub](https://img.shields.io/badge/GitHub-LAZYGENIUS69%2FVECTRON-white?style=flat-square&logo=github)](https://github.com/LAZYGENIUS69/VECTRON)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
@@ -44,7 +44,7 @@ The average developer spends **58% of their time understanding code, not writing
 
 ## Live Demo
 
-🔗 **(https://vectron-production-3480.up.railway.app/)**
+🔗 **(vectron-app.vercel.app)**
 
 Upload any JS/TS repo as a ZIP. No signup. No setup.
 
