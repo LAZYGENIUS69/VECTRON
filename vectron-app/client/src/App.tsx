@@ -19,6 +19,8 @@ type AppTab = 'graph' | 'processes' | 'ask-ai' | 'metrics' | 'report' | 'agents'
 type LeftSidebarTab = 'explorer' | 'filters';
 const MOBILE_BREAKPOINT_QUERY = '(max-width: 768px)';
 
+// NOTE: App is the main VECTRON UI shell (upload/graph/etc.).
+// Routing is handled in AppRoutes.tsx.
 export default function App() {
     const mobileSheetTouchStartY = useRef(0);
     const mobileSheetTouchStartX = useRef(0);

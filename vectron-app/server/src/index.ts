@@ -1562,17 +1562,24 @@ app.get("/api/file", (req, res) => {
   res.json({ path: filePath, content });
 });
 
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "landing.html"));
-});
+// NOTE: The frontend SPA now owns all UI routing.
+// - /      -> React landing page
+// - /app   -> React app shell
+// This backend should only serve API endpoints.
 
-app.use("/app", express.static(path.join(__dirname, "../../client/dist")));
-app.get("/app/*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "../../client/dist/index.html"));
-});
+// Export the Express app so it can be used in serverless environments (e.g. Vercel)
+// without binding to a port.
+export default app;
 
-app.listen(PORT, () => {
-  console.log(`VECTRON server listening on port ${PORT}`);
-});
+// Only bind ports + start the MCP SSE server when running as the main process.
+// In Vercel Serverless Functions, importing this module must not call listen().
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isMain = typeof require !== "undefined" && (require as any).main === module;
 
-startMCPServer();
+if (isMain) {
+  app.listen(PORT, () => {
+    console.log(`VECTRON server listening on port ${PORT}`);
+  });
+
+  startMCPServer();
+}
