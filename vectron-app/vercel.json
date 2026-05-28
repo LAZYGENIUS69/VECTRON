@@ -3,13 +3,10 @@
   "installCommand": "npm ci --prefix client && npm ci --prefix server",
   "buildCommand": "npm run build --prefix client && npm run build --prefix server",
   "outputDirectory": "client/dist",
-  "routes": [
-    { "src": "/api$", "dest": "/api/index.ts" },
-    { "src": "/api/(.*)", "dest": "/api/index.ts" },
-    { "src": "/health$", "dest": "/api/index.ts" },
-
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api", "destination": "/api/index.ts" },
+    { "source": "/api/:path*", "destination": "/api/index.ts" },
+    { "source": "/health", "destination": "/api/index.ts" },
+    { "source": "/:path*", "destination": "/index.html" }
   ]
-
 }
