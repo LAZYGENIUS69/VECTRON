@@ -19,8 +19,6 @@ import { startMCPServer } from "./mcp-server";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const cerebrasClient = new Cerebras({ apiKey: process.env.CEREBRAS_API_KEY });
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_SOURCE_FILES = 2500;
@@ -236,6 +234,7 @@ export async function callLLM(
       name: "Groq",
       isConfigured: hasValidGroqApiKey(),
       call: async () => {
+        const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
         const res = await groqClient.chat.completions.create({
           model: "llama-3.3-70b-versatile",
           messages: [
@@ -254,6 +253,7 @@ export async function callLLM(
       name: "Cerebras",
       isConfigured: hasValidCerebrasApiKey(),
       call: async () => {
+        const cerebrasClient = new Cerebras({ apiKey: process.env.CEREBRAS_API_KEY });
         const res = await cerebrasClient.chat.completions.create({
           model: "llama3.1-8b",
           messages: [
@@ -719,7 +719,29 @@ function resolveGraphData(fallbackGraph?: GraphData | null): GraphData | null {
   return getGraph() || fallbackGraph || null;
 }
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+const defaultCorsOrigins = [
+  "http://localhost:5173",
+  railwayPublicDomain ? `https://${railwayPublicDomain}` : "",
+  railwayPublicDomain ? `http://${railwayPublicDomain}` : "",
+];
+const allowedOrigins = (process.env.CORS_ORIGIN || defaultCorsOrigins.join(","))
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
+  }),
+);
 app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
@@ -1540,17 +1562,24 @@ app.get("/api/file", (req, res) => {
   res.json({ path: filePath, content });
 });
 
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "landing.html"));
-});
+// NOTE: The frontend SPA now owns all UI routing.
+// - /      -> React landing page
+// - /app   -> React app shell
+// This backend should only serve API endpoints.
 
-app.use("/app", express.static(path.join(__dirname, "../../client/dist")));
-app.get("/app/*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "../../client/dist/index.html"));
-});
+// Export the Express app so it can be used in serverless environments (e.g. Vercel)
+// without binding to a port.
+export default app;
 
-app.listen(PORT, () => {
-  console.log(`VECTRON server listening on port ${PORT}`);
-});
+// Only bind ports + start the MCP SSE server when running as the main process.
+// In Vercel Serverless Functions, importing this module must not call listen().
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isMain = typeof require !== "undefined" && (require as any).main === module;
 
-startMCPServer();
+if (isMain) {
+  app.listen(PORT, () => {
+    console.log(`VECTRON server listening on port ${PORT}`);
+  });
+
+  startMCPServer();
+}

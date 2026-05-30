@@ -7,4 +7,4 @@ cmds = [
 ]
 
 [start]
-cmd = "node vectron-app/server/dist/index.js"
+cmd = "node server/dist/index.js"
