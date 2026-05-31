@@ -5,10 +5,12 @@ import AppShell from './pages/AppShell';
 export default function AppRoutes() {
     return (
         <Routes>
-            <Route path="/" element={<Landing />} />
+            {/* Upload UI is the primary page until landing page enhancement is complete */}
+            <Route path="/" element={<AppShell />} />
             <Route path="/app" element={<AppShell />} />
-            {/* Optional: keep any old /app/* deep routes landing on the UI */}
             <Route path="/app/*" element={<AppShell />} />
+            {/* Landing page available at /landing for preview/development */}
+            <Route path="/landing" element={<Landing />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
