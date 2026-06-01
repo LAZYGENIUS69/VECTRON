@@ -1,4 +1,5 @@
 import type { AgentAnalysisResponse, DetectedProcess, GraphData, LLMConfig } from '../types/graph';
+import { detectProcessesLocally, getLocalFileContent, parseZipLocally } from './local-parser';
 
 const BASE = '/api';
 const HEALTH_ENDPOINT = '/health';
@@ -68,16 +69,17 @@ async function fetchFromApi(input: RequestInfo | URL, init?: RequestInit): Promi
 
 /** Upload a zip file and receive the parsed graph JSON. */
 export async function uploadZip(file: File): Promise<GraphData> {
-    const form = new FormData();
-    form.append('file', file);
+    return parseZipLocally(file);
+}
 
-    const res = await fetchFromApi(`${BASE}/upload`, { method: 'POST', body: form });
+function graphPayloadIsLarge(graphData: GraphData): boolean {
+    if (graphData.nodes.length > 1500 || graphData.edges.length > 4000) return true;
 
-    if (!res.ok) {
-        throw await buildApiError(res);
+    try {
+        return new TextEncoder().encode(JSON.stringify({ graphData })).length > 3 * 1024 * 1024;
+    } catch {
+        return true;
     }
-
-    return res.json() as Promise<GraphData>;
 }
 
 export async function cloneGithubRepo(githubUrl: string): Promise<GraphData> {
@@ -96,6 +98,11 @@ export async function cloneGithubRepo(githubUrl: string): Promise<GraphData> {
 
 /** Fetch source code of a specific file from the server cache. */
 export async function fetchFile(filePath: string): Promise<string> {
+    const localContent = getLocalFileContent(filePath);
+    if (localContent !== undefined) {
+        return localContent;
+    }
+
     const res = await fetchFromApi(`${BASE}/file?path=${encodeURIComponent(filePath)}`);
     if (!res.ok) {
         throw await buildApiError(res);
@@ -105,6 +112,10 @@ export async function fetchFile(filePath: string): Promise<string> {
 }
 
 export async function detectProcesses(graphData: GraphData, focusNode?: string | null): Promise<DetectedProcess[]> {
+    if (graphPayloadIsLarge(graphData)) {
+        return detectProcessesLocally(graphData, focusNode);
+    }
+
     const res = await fetchFromApi(`${BASE}/processes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,11 +123,16 @@ export async function detectProcesses(graphData: GraphData, focusNode?: string |
     });
 
     if (!res.ok) {
-        throw await buildApiError(res);
+        const error = await buildApiError(res);
+        if (/cors origin not allowed|payload too large|request entity too large/i.test(error.message)) {
+            return detectProcessesLocally(graphData, focusNode);
+        }
+        throw error;
     }
 
     const body = await res.json().catch(() => ({ processes: [] }));
-    return Array.isArray(body.processes) ? body.processes : [];
+    const processes = Array.isArray(body.processes) ? body.processes : [];
+    return processes.length > 0 ? processes : detectProcessesLocally(graphData, focusNode);
 }
 
 export async function queryCodebase(

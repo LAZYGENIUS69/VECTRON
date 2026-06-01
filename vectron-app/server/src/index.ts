@@ -722,18 +722,22 @@ function resolveGraphData(fallbackGraph?: GraphData | null): GraphData | null {
 const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
 const defaultCorsOrigins = [
   "http://localhost:5173",
+  "https://vectron-app.vercel.app",
   railwayPublicDomain ? `https://${railwayPublicDomain}` : "",
   railwayPublicDomain ? `http://${railwayPublicDomain}` : "",
 ];
-const allowedOrigins = (process.env.CORS_ORIGIN || defaultCorsOrigins.join(","))
+const configuredCorsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : [];
+const allowedOrigins = [...defaultCorsOrigins, ...configuredCorsOrigins]
+  .join(",")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const isAllowedVercelOrigin = (origin: string) => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin) || isAllowedVercelOrigin(origin)) {
         callback(null, true);
         return;
       }
