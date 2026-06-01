@@ -10,6 +10,14 @@ export type ParsedNodeType =
   | "import"
   | "python_function"
   | "python_class"
+  | "java_class"
+  | "java_interface"
+  | "java_enum"
+  | "java_method"
+  | "kotlin_class"
+  | "kotlin_fun"
+  | "kotlin_object"
+  | "android_component"
   | "config"
   | "doc";
 
@@ -340,32 +348,379 @@ function parseMarkdownFile(filePath: string, content: string): ParsedFile {
   return parsed;
 }
 
+// ─── Java Parser ─────────────────────────────────────────────────────────────
+
+const JAVA_CALL_IGNORE = new Set([
+  "if", "else", "for", "while", "switch", "catch", "return", "new",
+  "throw", "instanceof", "extends", "implements", "super", "this",
+  "void", "int", "long", "boolean", "String", "List", "Map", "Set",
+  "Object", "null", "true", "false",
+]);
+
+function parseJavaFile(filePath: string, content: string): ParsedFile {
+  const parsed = createEmptyParsedFile(filePath);
+  const seenNodes = new Set<string>();
+  const seenImports = new Set<string>();
+  const seenCallees = new Set<string>();
+  const lines = content.split(/\r?\n/);
+
+  const addNode = (node: ParsedNode) => {
+    const key = `${node.type}:${node.name}`;
+    if (seenNodes.has(key)) return;
+    seenNodes.add(key);
+    parsed.nodes.push(node);
+  };
+
+  // Annotation patterns (Android components)
+  const androidAnnotations = new Set([
+    "Activity", "Fragment", "Service", "BroadcastReceiver",
+    "ContentProvider", "ViewModel", "Repository",
+  ]);
+
+  lines.forEach((line, index) => {
+    const lineNumber = index + 1;
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("*")) return;
+
+    // package declaration
+    const packageMatch = trimmed.match(/^package\s+([\w.]+)\s*;/);
+    if (packageMatch) {
+      addNode({ name: packageMatch[1], type: "import", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // import statements
+    const importMatch = trimmed.match(/^import\s+(?:static\s+)?([\w.*]+)\s*;/);
+    if (importMatch) {
+      const imp = importMatch[1];
+      addNode({ name: imp, type: "import", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      addUnique(parsed.imports, seenImports, imp.replace(/\.\*/,""));
+      return;
+    }
+
+    // class declarations (including abstract, final, static inner)
+    const classMatch = trimmed.match(
+      /(?:public|private|protected|static|abstract|final)?\s*(?:public|private|protected|static|abstract|final)?\s*class\s+([A-Z][\w]*)(?:\s+extends\s+([\w.]+))?(?:\s+implements\s+([\w.,\s]+))?/
+    );
+    if (classMatch) {
+      addNode({ name: classMatch[1], type: "java_class", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      // imports: extends target
+      if (classMatch[2]) addUnique(parsed.imports, seenImports, classMatch[2]);
+      // imports: implements targets
+      if (classMatch[3]) {
+        classMatch[3].split(",").map(s => s.trim()).filter(Boolean).forEach(iface => {
+          addUnique(parsed.imports, seenImports, iface);
+        });
+      }
+      return;
+    }
+
+    // interface declarations
+    const ifaceMatch = trimmed.match(/(?:public|private|protected)?\s*interface\s+([A-Z][\w]*)/);
+    if (ifaceMatch) {
+      addNode({ name: ifaceMatch[1], type: "java_interface", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // enum declarations
+    const enumMatch = trimmed.match(/(?:public|private|protected)?\s*enum\s+([A-Z][\w]*)/);
+    if (enumMatch) {
+      addNode({ name: enumMatch[1], type: "java_enum", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // method declarations (heuristic: return-type methodName()
+    const methodMatch = trimmed.match(
+      /(?:public|private|protected|static|final|synchronized|native|abstract)?\s+(?:public|private|protected|static|final|synchronized)?\s*(?:@Override\s+)?(?:void|[A-Za-z_$][\w<>\[\],\s.]*?)\s+([a-z][\w]*)\s*\(/
+    );
+    if (methodMatch && !trimmed.includes("//")) {
+      const name = methodMatch[1];
+      // skip keywords and constructor-like (uppercase)
+      if (!JAVA_CALL_IGNORE.has(name) && /^[a-z]/.test(name)) {
+        addNode({ name, type: "java_method", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      }
+    }
+
+    // Android annotations (@Override, @Inject etc already handled, check for component patterns)
+    const annotationMatch = trimmed.match(/@([A-Z][\w]*)/);
+    if (annotationMatch && androidAnnotations.has(annotationMatch[1])) {
+      addNode({ name: annotationMatch[1], type: "android_component", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+    }
+
+    // call expressions: SomeThing.method()
+    if (!trimmed.startsWith("import") && !trimmed.startsWith("package")) {
+      const callPattern = /\b([a-z][\w]*)\s*\(/g;
+      for (const match of trimmed.matchAll(callPattern)) {
+        if (!JAVA_CALL_IGNORE.has(match[1])) {
+          addUnique(parsed.callees, seenCallees, match[1]);
+        }
+      }
+    }
+  });
+
+  return parsed;
+}
+
+// ─── Kotlin Parser ────────────────────────────────────────────────────────────
+
+const KOTLIN_CALL_IGNORE = new Set([
+  "if", "else", "for", "while", "when", "try", "catch", "return",
+  "val", "var", "fun", "class", "object", "interface", "data",
+  "override", "private", "public", "protected", "internal", "companion",
+  "null", "true", "false", "it", "this", "super", "by", "in", "is", "as",
+]);
+
+function parseKotlinFile(filePath: string, content: string): ParsedFile {
+  const parsed = createEmptyParsedFile(filePath);
+  const seenNodes = new Set<string>();
+  const seenImports = new Set<string>();
+  const seenCallees = new Set<string>();
+  const lines = content.split(/\r?\n/);
+
+  const addNode = (node: ParsedNode) => {
+    const key = `${node.type}:${node.name}`;
+    if (seenNodes.has(key)) return;
+    seenNodes.add(key);
+    parsed.nodes.push(node);
+  };
+
+  lines.forEach((line, index) => {
+    const lineNumber = index + 1;
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("*")) return;
+
+    // package
+    const packageMatch = trimmed.match(/^package\s+([\w.]+)/);
+    if (packageMatch) {
+      addNode({ name: packageMatch[1], type: "import", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // import
+    const importMatch = trimmed.match(/^import\s+([\w.*]+)/);
+    if (importMatch) {
+      const imp = importMatch[1];
+      addNode({ name: imp, type: "import", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      addUnique(parsed.imports, seenImports, imp.replace(/\.\*/, ""));
+      return;
+    }
+
+    // class / data class / sealed class / abstract class
+    const classMatch = trimmed.match(/(?:data|sealed|abstract|open|inner)?\s*class\s+([A-Z][\w]*)/);
+    if (classMatch) {
+      addNode({ name: classMatch[1], type: "kotlin_class", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // interface
+    const ifaceMatch = trimmed.match(/interface\s+([A-Z][\w]*)/);
+    if (ifaceMatch) {
+      addNode({ name: ifaceMatch[1], type: "java_interface", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // object / companion object
+    const objectMatch = trimmed.match(/(?:companion\s+)?object\s+([A-Z][\w]*)/);
+    if (objectMatch) {
+      addNode({ name: objectMatch[1], type: "kotlin_object", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // enum class
+    const enumMatch = trimmed.match(/enum\s+class\s+([A-Z][\w]*)/);
+    if (enumMatch) {
+      addNode({ name: enumMatch[1], type: "java_enum", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+      return;
+    }
+
+    // fun declarations (named functions only — not lambdas)
+    const funMatch = trimmed.match(/^(?:override\s+|private\s+|public\s+|protected\s+|internal\s+|suspend\s+|inline\s+|open\s+)*fun\s+([a-z][\w]*)\s*[(<]/);
+    if (funMatch) {
+      addNode({ name: funMatch[1], type: "kotlin_fun", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+    }
+
+    // call expressions
+    if (!trimmed.startsWith("import") && !trimmed.startsWith("package")) {
+      const callPattern = /\b([a-z][\w]*)\s*\(/g;
+      for (const match of trimmed.matchAll(callPattern)) {
+        if (!KOTLIN_CALL_IGNORE.has(match[1])) {
+          addUnique(parsed.callees, seenCallees, match[1]);
+        }
+      }
+    }
+  });
+
+  return parsed;
+}
+
+// ─── Android XML Parser ───────────────────────────────────────────────────────
+
+function parseAndroidXmlFile(filePath: string, content: string): ParsedFile {
+  const parsed = createEmptyParsedFile(filePath);
+  const seen = new Set<string>();
+
+  // Android component tags
+  const componentTagRe = /<(activity|service|receiver|provider|fragment|include|merge|navigation|action|argument)\b/gi;
+  for (const match of content.matchAll(componentTagRe)) {
+    const tag = match[1].toLowerCase();
+    if (!seen.has(tag)) {
+      seen.add(tag);
+      parsed.nodes.push({ name: tag, type: "android_component", edgeKind: "DEFINES" });
+    }
+  }
+
+  // android:name attribute values (fully qualified class references)
+  const nameAttrRe = /android:name="([\w.]+)"/g;
+  for (const match of content.matchAll(nameAttrRe)) {
+    const name = match[1];
+    if (!seen.has(name)) {
+      seen.add(name);
+      parsed.nodes.push({ name, type: "android_component", edgeKind: "DEFINES" });
+      // treat as import reference
+      addUnique(parsed.imports, new Set(parsed.imports), name);
+    }
+  }
+
+  // tools:context
+  const contextRe = /tools:context="([\w.]+)"/g;
+  for (const match of content.matchAll(contextRe)) {
+    const name = match[1].replace(/^\./,"");
+    if (!seen.has(name)) {
+      seen.add(name);
+      parsed.nodes.push({ name, type: "android_component", edgeKind: "DEFINES" });
+    }
+  }
+
+  // strings.xml / values: extract resource names
+  const resourceRe = /<(?:string|color|dimen|style|attr|declare-styleable)\s+name="([\w.]+)"/g;
+  for (const match of content.matchAll(resourceRe)) {
+    const name = match[1];
+    if (!seen.has(name)) {
+      seen.add(name);
+      parsed.nodes.push({ name, type: "config", edgeKind: "CONTAINS" });
+    }
+  }
+
+  return parsed;
+}
+
+// ─── Gradle Parser ────────────────────────────────────────────────────────────
+
+function parseGradleFile(filePath: string, content: string): ParsedFile {
+  const parsed = createEmptyParsedFile(filePath);
+  const seen = new Set<string>();
+  const lines = content.split(/\r?\n/);
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//")) return;
+    const lineNumber = index + 1;
+
+    // dependencies: implementation, api, testImplementation etc.
+    const depMatch = trimmed.match(/(?:implementation|api|testImplementation|androidTestImplementation|compileOnly|runtimeOnly|kapt|annotationProcessor)\s+['"]([\w.:+-]+)['"]/);
+    if (depMatch) {
+      const dep = depMatch[1];
+      if (!seen.has(dep)) {
+        seen.add(dep);
+        parsed.nodes.push({ name: dep, type: "import", edgeKind: "DEFINES", startLine: lineNumber, endLine: lineNumber });
+        addUnique(parsed.imports, new Set(parsed.imports), dep.split(":")[0]);
+      }
+      return;
+    }
+
+    // plugins
+    const pluginMatch = trimmed.match(/(?:id|apply plugin)\s+['"]([\w.-]+)['"]/);
+    if (pluginMatch && !seen.has(pluginMatch[1])) {
+      seen.add(pluginMatch[1]);
+      parsed.nodes.push({ name: pluginMatch[1], type: "config", edgeKind: "CONTAINS", startLine: lineNumber, endLine: lineNumber });
+    }
+  });
+
+  return parsed;
+}
+
+// ─── ProGuard / R8 Parser ─────────────────────────────────────────────────────
+
+function parseProguardFile(filePath: string, content: string): ParsedFile {
+  const parsed = createEmptyParsedFile(filePath);
+  const seen = new Set<string>();
+
+  const keepRe = /-keep(?:classmembers|classeswithmembers)?\s+(?:public\s+)?(?:class|interface)\s+([\w.*]+)/g;
+  for (const match of content.matchAll(keepRe)) {
+    const name = match[1];
+    if (!seen.has(name)) {
+      seen.add(name);
+      parsed.nodes.push({ name, type: "config", edgeKind: "CONTAINS" });
+    }
+  }
+
+  return parsed;
+}
+
+// ─── Main dispatch ────────────────────────────────────────────────────────────
+
 export function parseFile(filePath: string, content: string): ParsedFile | null {
   if (Buffer.byteLength(content, "utf-8") > MAX_CONTENT_BYTES) {
     return null;
   }
 
   const ext = path.extname(filePath).toLowerCase();
+  const base = path.basename(filePath).toLowerCase();
 
   try {
+    // JavaScript / TypeScript
     if ([".js", ".jsx", ".ts", ".tsx"].includes(ext)) {
       return parseJavaScriptLikeFile(filePath, content);
     }
 
+    // Python
     if (ext === ".py") {
       return parsePythonFile(filePath, content);
     }
 
+    // Java
+    if (ext === ".java") {
+      return parseJavaFile(filePath, content);
+    }
+
+    // Kotlin
+    if (ext === ".kt" || ext === ".kts") {
+      return parseKotlinFile(filePath, content);
+    }
+
+    // Android XML (layouts, manifests, resources, navigation)
+    if (ext === ".xml") {
+      return parseAndroidXmlFile(filePath, content);
+    }
+
+    // Gradle build files
+    if (ext === ".gradle" || base === "build.gradle" || base === "settings.gradle" || base === "build.gradle.kts") {
+      return parseGradleFile(filePath, content);
+    }
+
+    // ProGuard / R8 rules
+    if (ext === ".pro" || base === "proguard-rules.pro") {
+      return parseProguardFile(filePath, content);
+    }
+
+    // JSON (package.json, gradle.properties etc.)
     if (ext === ".json") {
       return parseJsonFile(filePath, content);
     }
 
+    // YAML
     if (ext === ".yaml" || ext === ".yml") {
       return parseYamlFile(filePath, content);
     }
 
+    // Markdown docs
     if (ext === ".md") {
       return parseMarkdownFile(filePath, content);
+    }
+
+    // .properties files (gradle.properties, local.properties)
+    if (ext === ".properties") {
+      return parseYamlFile(filePath, content); // key: value format compatible
     }
 
     return null;
