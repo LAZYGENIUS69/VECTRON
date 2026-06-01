@@ -18,6 +18,14 @@ export type GraphNodeType =
   | "import"
   | "python_function"
   | "python_class"
+  | "java_class"
+  | "java_interface"
+  | "java_enum"
+  | "java_method"
+  | "kotlin_class"
+  | "kotlin_fun"
+  | "kotlin_object"
+  | "android_component"
   | "config"
   | "doc";
 
@@ -74,19 +82,11 @@ function resolveRelativePythonImport(importerPath: string, specifier: string): s
 function resolveImport(importerPath: string, specifier: string, knownPaths: Set<string>): string | null {
   const extensionCandidates = [
     "",
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
+    ".ts", ".tsx", ".js", ".jsx",
     ".py",
-    ".json",
-    ".yaml",
-    ".yml",
-    ".md",
-    "/index.ts",
-    "/index.tsx",
-    "/index.js",
-    "/index.jsx",
+    ".java", ".kt", ".kts",
+    ".json", ".yaml", ".yml", ".md", ".xml",
+    "/index.ts", "/index.tsx", "/index.js", "/index.jsx",
     "/__init__.py",
   ];
 
@@ -118,6 +118,12 @@ const CALLABLE_NODE_TYPES = new Set<GraphNodeType>([
   "method",
   "python_function",
   "python_class",
+  "java_class",
+  "java_method",
+  "java_interface",
+  "kotlin_class",
+  "kotlin_fun",
+  "kotlin_object",
 ]);
 
 const NON_FILE_NODE_TYPES = new Set<GraphNodeType>([
@@ -127,6 +133,14 @@ const NON_FILE_NODE_TYPES = new Set<GraphNodeType>([
   "import",
   "python_function",
   "python_class",
+  "java_class",
+  "java_interface",
+  "java_enum",
+  "java_method",
+  "kotlin_class",
+  "kotlin_fun",
+  "kotlin_object",
+  "android_component",
   "config",
   "doc",
 ]);
