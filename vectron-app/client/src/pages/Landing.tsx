@@ -1,1103 +1,762 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+﻿import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-type Particle = {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    size: number;
-    color: string;
-};
-
-const statements = [
-    'Upload any JS/TS repository as a ZIP',
-    'Get a live interactive dependency graph instantly',
-    'Click any node. See the blast radius before you touch anything.',
-];
-
-const features = [
-    {
-        mark: '◎',
-        title: 'Blast Radius BFS',
-        description: 'Trace dependency propagation outward from any node and quantify exactly how far a risky change can travel.',
-    },
-    {
-        mark: '⬡',
-        title: 'Dependency Graph',
-        description: 'Render files, functions, classes, and methods as a live graph with structural edges you can inspect in motion.',
-    },
-    {
-        mark: '⌘',
-        title: 'AI Codebase Query',
-        description: 'Ask plain-English questions and get graph-grounded call chains that stay anchored to real nodes in your codebase.',
-    },
-    {
-        mark: '≋',
-        title: 'Process Detection',
-        description: 'Surface meaningful runtime flows from trigger to side effect, then inspect them as generated Mermaid diagrams.',
-    },
-    {
-        mark: '◈',
-        title: 'Risk Scoring',
-        description: 'Highlight connected components so you can prioritize refactors around the modules most likely to create damage.',
-    },
-    {
-        mark: '⎙',
-        title: 'Intelligence Report',
-        description: 'Generate an architecture brief with hotspots, onboarding paths, and actionable codebase intelligence in one pass.',
-    },
-];
-
-const tools = [
-    'vectron_status',
-    'vectron_blast_radius',
-    'vectron_get_callers',
-    'vectron_get_dependencies',
-    'vectron_query',
-];
-
-const tech = [
-    'React',
-    'TypeScript',
-    'Sigma.js',
-    'Graphology',
-    'ForceAtlas2',
-    'Express',
-    'Babel',
-    'Groq',
-    'Cerebras',
-    'Mermaid.js',
-    'MCP',
-    'Railway',
-];
-
-function ParticleCanvas() {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const context = canvas.getContext('2d');
-        if (!context) return;
-
-        const cvs = canvas;
-        const ctx = context;
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const particles: Particle[] = [];
-        const colors = ['#00d9ff', '#7b61ff'];
-        let width = 0;
-        let height = 0;
-        let frame = 0;
-
-        function resizeCanvas() {
-            width = cvs.offsetWidth;
-            height = cvs.offsetHeight;
-            const ratio = window.devicePixelRatio || 1;
-            cvs.width = width * ratio;
-            cvs.height = height * ratio;
-            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        }
-
-        function createParticle(): Particle {
-            const drift = Math.random() * 0.32 + 0.08;
-            return {
-                x: Math.random() * width,
-                y: Math.random() * height,
-                vx: (Math.random() - 0.5) * drift,
-                vy: (Math.random() - 0.5) * drift,
-                size: Math.random() * 1.7 + 1.4,
-                color: colors[Math.floor(Math.random() * colors.length)],
-            };
-        }
-
-        function populateParticles() {
-            particles.length = 0;
-            const count = width < 720 ? 26 : 42;
-            for (let i = 0; i < count; i += 1) {
-                particles.push(createParticle());
-            }
-        }
-
-        function drawConnections() {
-            for (let i = 0; i < particles.length; i += 1) {
-                for (let j = i + 1; j < particles.length; j += 1) {
-                    const a = particles[i];
-                    const b = particles[j];
-                    const dx = a.x - b.x;
-                    const dy = a.y - b.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 156 && (i + j) % 3 === 0) {
-                        const opacity = 1 - distance / 156;
-                        ctx.strokeStyle = `rgba(0, 217, 255, ${0.13 * opacity})`;
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(a.x, a.y);
-                        ctx.lineTo(b.x, b.y);
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
-
-        function updateParticles() {
-            particles.forEach((particle) => {
-                if (!reduceMotion) {
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                }
-
-                if (particle.x < -36) particle.x = width + 36;
-                if (particle.x > width + 36) particle.x = -36;
-                if (particle.y < -36) particle.y = height + 36;
-                if (particle.y > height + 36) particle.y = -36;
-            });
-        }
-
-        function drawParticles() {
-            particles.forEach((particle) => {
-                ctx.fillStyle = particle.color;
-                ctx.shadowBlur = particle.color === '#00d9ff' ? 14 : 10;
-                ctx.shadowColor = particle.color;
-                ctx.beginPath();
-                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            ctx.shadowBlur = 0;
-        }
-
-        function render() {
-            ctx.clearRect(0, 0, width, height);
-            updateParticles();
-            drawConnections();
-            drawParticles();
-            if (!reduceMotion) {
-                frame = window.requestAnimationFrame(render);
-            }
-        }
-
-        function handleResize() {
-            resizeCanvas();
-            populateParticles();
-            render();
-        }
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
-        if (!reduceMotion) {
-            frame = window.requestAnimationFrame(render);
-        }
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            window.cancelAnimationFrame(frame);
-        };
-    }, []);
-
-    return <canvas ref={canvasRef} className="hero-canvas" aria-hidden="true" />;
-}
+// Landing page ported from: server/src/landing.html
+// Goal: preserve design + animations + interactions, but keep routing inside the SPA.
 
 export default function Landing() {
     const navigate = useNavigate();
+    const stageRef = useRef<HTMLDivElement | null>(null);
+
     const year = useMemo(() => String(new Date().getFullYear()), []);
-    const goToApp = useCallback(() => navigate('/app'), [navigate]);
 
     useEffect(() => {
-        const elements = document.querySelectorAll<HTMLElement>('.reveal-on-scroll');
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('is-visible');
-                        observer.unobserve(entry.target);
-                    }
-                });
-            },
-            { threshold: 0.18, rootMargin: '0px 0px -8% 0px' },
-        );
+        // Premium 3D tilt interaction (no libs)
+        const el = stageRef.current;
+        if (!el) return;
 
-        elements.forEach((element) => observer.observe(element));
-        return () => observer.disconnect();
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduce) return;
+
+        let raf: number | null = null;
+        let target = { rx: 0, ry: 0 };
+        let cur = { rx: 0, ry: 0 };
+
+        function schedule() {
+            if (raf) return;
+            raf = window.requestAnimationFrame(tick);
+        }
+
+        function tick() {
+            if (!el) return;
+            raf = null;
+            cur.rx += (target.rx - cur.rx) * 0.12;
+            cur.ry += (target.ry - cur.ry) * 0.12;
+            el.style.transform = `perspective(1100px) rotateX(${cur.rx.toFixed(3)}deg) rotateY(${cur.ry.toFixed(3)}deg)`;
+            if (Math.abs(target.rx - cur.rx) + Math.abs(target.ry - cur.ry) > 0.02) schedule();
+        }
+
+        function onMove(e: PointerEvent) {
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            const dx = x - 0.5;
+            const dy = y - 0.5;
+            target.ry = dx * 10;
+            target.rx = -dy * 8;
+            schedule();
+        }
+
+        function onLeave() {
+            target = { rx: 0, ry: 0 };
+            schedule();
+        }
+
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerleave', onLeave);
+
+        return () => {
+            if (raf) window.cancelAnimationFrame(raf);
+            el.removeEventListener('pointermove', onMove);
+            el.removeEventListener('pointerleave', onLeave);
+        };
     }, []);
+
+    const goToApp = () => navigate('/app');
 
     return (
         <div className="landing-root">
             <style>{landingCss}</style>
 
-            <div className="page-shell">
-                <nav className="nav">
+            <header className="nav">
+                <div className="container nav-inner">
                     <a
-                        className="nav-brand"
+                        className="brand"
                         href="#top"
-                        onClick={(event) => {
-                            event.preventDefault();
+                        aria-label="VECTRON home"
+                        onClick={(e) => {
+                            // Prevent full page reload and keep anchor scroll.
+                            // This preserves original behavior while staying SPA.
+                            e.preventDefault();
                             document.getElementById('top')?.scrollIntoView({ behavior: 'smooth' });
                         }}
                     >
+                        <span className="brand-mark" aria-hidden="true" />
                         VECTRON
                     </a>
 
+                    <nav className="nav-links" aria-label="Primary">
+                        <a href="#capabilities">Capabilities</a>
+                        <a href="#workflow">Workflow</a>
+                        <a href="#security">Security</a>
+                    </nav>
+
                     <div className="nav-actions">
-                        <a
-                            className="nav-link"
-                            href="https://github.com/LAZYGENIUS69/VECTRON"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            GitHub
+                        <a className="btn ghost" href="/docs" target="_blank" rel="noreferrer">
+                            Docs
                         </a>
-                        <button type="button" className="nav-button" onClick={goToApp}>
-                            Launch App
+                        <button type="button" className="btn primary" onClick={goToApp}>
+                            Launch App ΓåÆ
                         </button>
                     </div>
-                </nav>
+                </div>
+            </header>
 
-                <main id="top">
-                    <section className="hero">
-                        <ParticleCanvas />
-                        <div className="hero-inner fade-in is-visible">
-                            <div className="badge">Dependency Propagation Engine</div>
-                            <h1 className="hero-title">VECTRON</h1>
-                            <p className="hero-subtitle">
-                                Parse any codebase. Map every dependency.
-                                <br />
-                                See the blast radius before you break anything.
-                            </p>
-                            <div className="hero-actions">
-                                <button type="button" className="button-primary" onClick={goToApp}>
-                                    Launch App
-                                </button>
-                                <a
-                                    className="button-secondary"
-                                    href="https://github.com/LAZYGENIUS69/VECTRON"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    View on GitHub
-                                </a>
-                            </div>
+            <main id="top" className="hero">
+                <div className="container hero-grid">
+                    <div>
+                        <div className="pill">
+                            <span className="dot" aria-hidden="true" /> Open Source ΓÇó MIT-minded ΓÇó MCP-ready
                         </div>
-                        <a className="scroll-indicator" href="#capability" aria-label="Scroll to capability section">
-                            ↓
-                        </a>
-                    </section>
+                        <h1 className="h1">
+                            An <span className="grad">ultra-premium</span> agentic view of your codebase.
+                        </h1>
+                        <p className="sub">
+                            VECTRON turns repositories into a living system mapΓÇödependency graph, blast radius, semantic search, and MCP toolsΓÇöso teams ship faster without breaking things.
+                        </p>
 
-                    <section id="capability" className="capability">
-                        <div className="section-inner narrow">
-                            <div className="section-label reveal-on-scroll">Core Capability</div>
-                            <div className="statement-list">
-                                {statements.map((statement, index) => (
-                                    <div className="statement reveal-on-scroll" key={statement}>
-                                        <div className="statement-number">{String(index + 1).padStart(2, '0')}</div>
-                                        <div className="statement-text">{statement}</div>
+                        <div className="cta-row">
+                            <button type="button" className="btn primary" onClick={goToApp}>
+                                Launch VECTRON ΓåÆ
+                            </button>
+                            <a className="btn" href="#workflow">
+                                See it in action
+                            </a>
+                        </div>
+
+                        <div className="fineprint">
+                            <span>
+                                <i aria-hidden="true" /> Instant graph + AI context
+                            </span>
+                            <span>
+                                <i aria-hidden="true" /> Local-first deploys
+                            </span>
+                            <span>
+                                <i aria-hidden="true" /> Enterprise security posture
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="stage" id="stage" ref={stageRef} aria-label="Interactive 3D preview">
+                        <div className="stage-inner">
+                            <div className="hud">
+                                <div className="hud-left">
+                                    <div className="lights" aria-hidden="true">
+                                        <b />
+                                        <b />
+                                        <b />
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="features" className="features">
-                        <div className="section-inner">
-                            <div className="section-label reveal-on-scroll">Capabilities</div>
-                            <div className="features-grid">
-                                {features.map((feature) => (
-                                    <article className="feature-card fade-in reveal-on-scroll" key={feature.title}>
-                                        <div className="feature-icon">{feature.mark}</div>
-                                        <h3 className="feature-title">{feature.title}</h3>
-                                        <p className="feature-description">{feature.description}</p>
-                                    </article>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="mcp" className="mcp">
-                        <div className="section-inner mcp-layout">
-                            <div className="fade-in reveal-on-scroll">
-                                <div className="mcp-badge">MCP Server</div>
-                                <h2 className="mcp-title">Give your AI coding assistant a map.</h2>
-                                <p className="mcp-copy">
-                                    VECTRON runs as an MCP server on port 3002. Connect it to Claude Code, Cursor,
-                                    or any MCP-compatible client. Your AI now has full dependency context while coding.
-                                </p>
-                                <div className="pill-row">
-                                    {tools.map((tool) => (
-                                        <span className="tool-pill" key={tool}>
-                                            {tool}
-                                        </span>
-                                    ))}
+                                    <div className="hud-title">VECTRON ΓÇó Codebase Intelligence</div>
+                                </div>
+                                <div className="hud-right">
+                                    <div className="chip">Graph</div>
+                                    <div className="chip">AI</div>
+                                    <div className="chip">MCP</div>
                                 </div>
                             </div>
 
-                            <div className="code-block fade-in reveal-on-scroll" aria-label="MCP configuration example">
-                                <span className="code-comment">// Add to your MCP client</span>
-                                <br />
-                                <span className="code-punctuation">{'{'}</span>
-                                <br />
-                                &nbsp;&nbsp;<span className="code-key">"name"</span>
-                                <span className="code-punctuation">:</span> <span className="code-value">"VECTRON"</span>
-                                <span className="code-punctuation">,</span>
-                                <br />
-                                &nbsp;&nbsp;<span className="code-key">"url"</span>
-                                <span className="code-punctuation">:</span>{' '}
-                                <span className="code-value">"http://localhost:3002/sse"</span>
-                                <span className="code-punctuation">,</span>
-                                <br />
-                                &nbsp;&nbsp;<span className="code-key">"type"</span>
-                                <span className="code-punctuation">:</span> <span className="code-value">"sse"</span>
-                                <br />
-                                <span className="code-punctuation">{'}'}</span>
+                            <div className="bento">
+                                <div className="card">
+                                    <div className="spark" aria-hidden="true" />
+                                    <h3>Blast radius</h3>
+                                    <p>Quantify change impact across services, packages, and critical paths. See downstream risk instantly.</p>
+                                </div>
+                                <div className="card">
+                                    <div
+                                        className="spark"
+                                        aria-hidden="true"
+                                        style={{ animationDuration: '13s', opacity: 0.52 }}
+                                    />
+                                    <h3>Semantic map</h3>
+                                    <p>Search intent, not filenames. Retrieve the right code + context, fast.</p>
+                                </div>
+                                <div className="card term">
+                                    <h3 style={{ margin: '12px 14px 10px' }}>Preview</h3>
+                                    <div className="code" role="region" aria-label="Example commands">
+                                        $ <span className="k">vectron</span> <span className="t">index</span> ./repo
+                                        {'\n'}Γå│ graph: <span className="m">2,318</span> modules ΓÇó <span className="m">8,441</span> edges
+                                        {'\n'}Γå│ risk: <span className="m">3</span> critical paths touched
+                                        {'\n\n'}$ <span className="k">vectron</span> <span className="t">ask</span> "what breaks if I change auth middleware?"
+                                        {'\n'}Γå│ answer: 7 routes, 2 services, 1 async consumer
+                                        {'\n'}Γå│ suggested tests: auth.spec.ts, api-contract.spec.ts
+                                        {'\n\n'}$ <span className="k">vectron</span> <span className="t">mcp</span> connect
+                                        {'\n'}Γå│ tools: repo_search, dependency_trace, diff_summarize
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </section>
-
-                    <section className="tech">
-                        <div className="section-inner">
-                            <div className="section-label reveal-on-scroll">Built With</div>
-                            <div className="tech-row fade-in reveal-on-scroll">
-                                {tech.map((item) => (
-                                    <span className="tech-item" key={item}>
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className="cta">
-                        <div className="section-inner fade-in reveal-on-scroll">
-                            <h2 className="cta-title">Upload your codebase.</h2>
-                            <p className="cta-copy">Supports JS · TS · JSX · TSX</p>
-                            <div className="cta-actions">
-                                <button type="button" className="cta-button" onClick={goToApp}>
-                                    Launch VECTRON
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-                </main>
-
-                <footer>
-                    <div className="footer-inner">
-                        <div className="footer-brand">VECTRON</div>
-                        <span>© {year}</span>
-                        <a
-                            className="footer-link"
-                            href="https://github.com/LAZYGENIUS69/VECTRON"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            GitHub
-                        </a>
                     </div>
-                </footer>
-            </div>
+                </div>
+            </main>
+
+            <section id="capabilities">
+                <div className="container">
+                    <div className="section-title">
+                        <div>
+                            <div className="kicker">Capabilities</div>
+                            <h2 className="h2">High signal, low noise. Designed for teams shipping daily.</h2>
+                        </div>
+                        <div
+                            className="pill"
+                            style={{
+                                borderColor: 'rgba(241,231,198,.16)',
+                                background: 'rgba(241,231,198,.06)',
+                            }}
+                        >
+                            Premium glass + motion
+                        </div>
+                    </div>
+
+                    <div className="grid3">
+                        <div className="feature">
+                            <b>Dependency graph</b>
+                            <span>Trace imports, runtime edges, and service boundaries. Navigate by risk, not by folder.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Blast radius scoring</b>
+                            <span>Rank the downstream impact of a change with a reproducible scoring model and explainable paths.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Agentic workflows</b>
+                            <span>Use MCP to connect tooling: search, trace, summarize diffs, and generate test plans.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Design-grade UI</b>
+                            <span>Glassmorphism, bento layouts, and subtle depthΓÇöresponsive, accessible, and fast.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Local-first</b>
+                            <span>Run on your infra. Keep code in your perimeter. Keep telemetry optional.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Security posture</b>
+                            <span>Least-privilege by default. Make compliance easy with predictable behavior.</span>
+                        </div>
+                    </div>
+
+                    <div className="logos" aria-label="Social proof">
+                        <div className="logo-pill">SOC 2-ready</div>
+                        <div className="logo-pill">SSO/SAML</div>
+                        <div className="logo-pill">On-prem</div>
+                        <div className="logo-pill">Audit logs</div>
+                        <div className="logo-pill">Role-based access</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="workflow">
+                <div className="container">
+                    <div className="section-title">
+                        <div>
+                            <div className="kicker">Workflow</div>
+                            <h2 className="h2">From repo to system map in minutes.</h2>
+                        </div>
+                        <button type="button" className="btn" onClick={goToApp}>
+                            Open the app
+                        </button>
+                    </div>
+
+                    <div className="grid3">
+                        <div className="feature">
+                            <b>1. Index</b>
+                            <span>Build a dependency + semantic index across modules and services.</span>
+                        </div>
+                        <div className="feature">
+                            <b>2. Explore</b>
+                            <span>Navigate bento cards and tracesΓÇöfollow edges to what matters.</span>
+                        </div>
+                        <div className="feature">
+                            <b>3. Ship</b>
+                            <span>Get safe change plans with tests, impacted owners, and rollback guidance.</span>
+                        </div>
+                    </div>
+
+                    <div style={{ height: 18 }} />
+                    <div className="cta-band">
+                        <div>
+                            <h3>Hermes-level polish + 3D glass interaction.</h3>
+                            <p>Minimal copy, editorial type, premium glass, and responsive performanceΓÇöbuilt to feel like a top-tier AI company.</p>
+                        </div>
+                        <div className="cta-row" style={{ margin: 0 }}>
+                            <button type="button" className="btn primary" onClick={goToApp}>
+                                Launch App ΓåÆ
+                            </button>
+                            <a className="btn ghost" href="#capabilities">
+                                Capabilities
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="security">
+                <div className="container">
+                    <div className="section-title">
+                        <div>
+                            <div className="kicker">Security</div>
+                            <h2 className="h2">Built to live inside serious organizations.</h2>
+                        </div>
+                        <span className="pill">No trackers by default</span>
+                    </div>
+
+                    <div className="grid3">
+                        <div className="feature">
+                            <b>Data perimeter</b>
+                            <span>Your repositories stay in your network. Deploy on-prem or in your cloud account.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Policy controls</b>
+                            <span>Role-based access, audit logs, and predictable auth pathways for compliance.</span>
+                        </div>
+                        <div className="feature">
+                            <b>Operational clarity</b>
+                            <span>Deterministic indexing + explainable traces. No black-box surprises.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <footer>
+                <div className="container">
+                    <div className="foot">
+                        <div>VECTRON</div>
+                        <div>
+                            <a
+                                href="#top"
+                                style={{ color: 'rgba(255,255,255,.70)' }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    document.getElementById('top')?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                            >
+                                Home
+                            </a>{' '}
+                            ΓÇó{' '}
+                            <a href="/docs" target="_blank" rel="noreferrer" style={{ color: 'rgba(255,255,255,.70)' }}>
+                                Docs
+                            </a>{' '}
+                            ΓÇó{' '}
+                            <button
+                                type="button"
+                                className="landing-linklike"
+                                onClick={goToApp}
+                                style={{ color: 'rgba(255,255,255,.70)' }}
+                            >
+                                App
+                            </button>
+                        </div>
+                        <div>
+                            ┬⌐ {year} ΓÇó Built for speed
+                        </div>
+                    </div>
+                </div>
+            </footer>
         </div>
     );
 }
 
 const landingCss = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
 
-:root {
-  --bg: #000000;
-  --bg-secondary: #080810;
-  --bg-card: #0a0a14;
-  --accent: #00d9ff;
-  --accent-dim: rgba(0, 217, 255, 0.1);
-  --border: rgba(255, 255, 255, 0.07);
-  --text-primary: #ffffff;
-  --text-secondary: #888899;
-  --font-mono: "JetBrains Mono", monospace;
-  --font-sans: "Inter", sans-serif;
-  --violet: #7b61ff;
-  --shadow-glow: 0 0 80px rgba(0, 217, 255, 0.12);
-  --grid-line: rgba(255, 255, 255, 0.035);
-  --container: 1180px;
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+:root{
+  --bg0:#05060a;
+  --bg1:#070814;
+  --ink:rgba(255,255,255,.92);
+  --muted:rgba(255,255,255,.66);
+  --dim:rgba(255,255,255,.50);
+  --line:rgba(255,255,255,.10);
+  --line2:rgba(255,255,255,.16);
+  --cyan:#00d9ff;
+  --violet:#7b61ff;
+  --lime:#a2ff52;
+  --gold:#f1e7c6;
+  --serif:"Fraunces", ui-serif, Georgia, serif;
+  --sans:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --radius:18px;
+  --radius2:24px;
+  --container:1160px;
+  --shadow: 0 28px 120px rgba(0,0,0,.70);
+  --glow: 0 0 0 1px rgba(0,217,255,.16), 0 0 90px rgba(123,97,255,.13);
+  --glow2: 0 0 0 1px rgba(241,231,198,.14), 0 0 120px rgba(0,217,255,.10);
 }
 
-.landing-root {
+/* Reset + layout */
+.landing-root{
+  background:
+    radial-gradient(900px 650px at 10% 10%, rgba(0,217,255,.14), transparent 55%),
+    radial-gradient(900px 650px at 85% 20%, rgba(123,97,255,.16), transparent 56%),
+    radial-gradient(850px 650px at 60% 90%, rgba(162,255,82,.09), transparent 56%),
+    radial-gradient(1200px 800px at 55% 45%, rgba(241,231,198,.08), transparent 60%),
+    linear-gradient(180deg, var(--bg0), var(--bg1) 56%, #04040a 100%);
+  color: var(--ink);
+  font-family: var(--sans);
   height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
-  background:
-    radial-gradient(circle at top center, rgba(0, 217, 255, 0.07), transparent 30%),
-    radial-gradient(circle at 78% 18%, rgba(123, 97, 255, 0.1), transparent 24%),
-    linear-gradient(180deg, #020204 0%, #000000 34%, #05050b 100%);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  text-rendering: optimizeLegibility;
+  position: relative;
   -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
-.landing-root * {
-  box-sizing: border-box;
-}
-
-.landing-root a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.page-shell {
-  position: relative;
-  overflow: hidden;
-}
-
-.page-shell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
+.landing-root *{ box-sizing: border-box; }
+.landing-root::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
   background-image:
-    linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--grid-line) calc(100% - 1px)),
-    linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--grid-line) calc(100% - 1px));
+    linear-gradient(to right, rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.05) 1px, transparent 1px);
   background-size: 120px 120px;
-  opacity: 0.32;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 88%);
-  z-index: 0;
+  opacity:.14;
+  mask-image: radial-gradient(circle at 35% 20%, rgba(0,0,0,.95), rgba(0,0,0,.35) 55%, transparent 78%);
+  z-index:0;
 }
-
-.page-shell::after {
-  content: "";
-  position: fixed;
-  top: 6vh;
-  right: -16vw;
-  width: 46vw;
-  height: 46vw;
-  border-radius: 50%;
-  pointer-events: none;
-  background: rgba(123, 97, 255, 0.16);
-  filter: blur(96px);
-  z-index: 0;
+.landing-root::after{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  opacity:.075;
+  mix-blend-mode: overlay;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch"/></filter><rect width="240" height="240" filter="url(%23n)" opacity="0.35"/></svg>');
+  z-index:0;
 }
+.landing-root > header,
+.landing-root > main,
+.landing-root > section,
+.landing-root > footer{ position:relative; z-index:1; }
 
-.nav,
-main,
-footer {
-  position: relative;
-  z-index: 1;
-}
+.container{ width:min(100%, var(--container)); margin:0 auto; padding:0 28px; }
 
-.nav {
-  position: fixed;
+/* Top nav */
+.nav{
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  height: 58px;
-  padding: 0 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-  z-index: 20;
+  z-index: 50;
+  height: 68px;
+  display:flex;
+  align-items:center;
+  backdrop-filter: blur(22px);
+  background: rgba(6,7,12,.55);
+  border-bottom: 1px solid rgba(255,255,255,.08);
 }
 
-.nav-brand,
-.footer-brand {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.32em;
-  color: var(--text-primary);
-  text-transform: uppercase;
+.nav-inner{ display:flex; align-items:center; justify-content:space-between; gap: 14px; width:100%; }
+
+.brand{ display:inline-flex; align-items:center; gap:12px; text-decoration:none; color: rgba(255,255,255,.86); font-family:var(--mono); letter-spacing:.36em; font-size: 12px; text-transform: uppercase; white-space:nowrap; }
+.brand-mark{
+  width: 12px; height: 12px; border-radius: 4px;
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  box-shadow: 0 0 30px rgba(0,217,255,.16);
 }
 
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
+.nav-links{ display:flex; align-items:center; gap: 18px; }
+.nav-links a{ color: var(--dim); text-decoration:none; font-size: 13px; letter-spacing:.08em; text-transform:uppercase; }
+.nav-links a:hover{ color: var(--ink); }
 
-.nav-link,
-.footer-link {
-  color: var(--text-secondary);
-  font-size: 13px;
-  transition: color 0.2s var(--ease);
-}
+.nav-actions{ display:flex; align-items:center; gap: 10px; }
 
-.nav-link:hover,
-.footer-link:hover {
-  color: var(--text-primary);
-}
-
-.nav-button,
-.button-primary,
-.button-secondary,
-.cta-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition:
-    background 0.2s var(--ease),
-    border-color 0.2s var(--ease),
-    color 0.2s var(--ease),
-    transform 0.2s var(--ease),
-    box-shadow 0.2s var(--ease);
-}
-
-.nav-button {
-  min-height: 36px;
-  padding: 0 18px;
-  border-color: rgba(0, 217, 255, 0.72);
-  background: rgba(0, 217, 255, 0.08);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-}
-
-.nav-button:hover {
-  background: rgba(0, 217, 255, 0.16);
-  box-shadow: 0 0 24px rgba(0, 217, 255, 0.12);
-  transform: translateY(-1px);
-}
-
-main {
-  position: relative;
-}
-
-section {
-  position: relative;
-  padding: 112px 48px;
-}
-
-.section-inner {
-  width: min(100%, var(--container));
-  margin: 0 auto;
-}
-
-.section-inner.narrow {
-  max-width: 820px;
-}
-
-.hero {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 96px;
-  padding-bottom: 72px;
-  isolation: isolate;
-}
-
-.hero-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
-  opacity: 0.86;
-}
-
-.hero-inner {
-  width: min(100%, 980px);
-  margin: 0 auto;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 26px;
-}
-
-.badge,
-.section-label,
-.mcp-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.badge {
-  padding: 7px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(0, 217, 255, 0.22);
-  background: var(--accent-dim);
-}
-
-.hero-title {
-  margin: 0;
-  font-size: clamp(72px, 12vw, 140px);
-  font-weight: 300;
-  letter-spacing: 0.05em;
-  line-height: 0.92;
-  color: var(--text-primary);
-  text-shadow: 0 0 30px rgba(255, 255, 255, 0.06);
-}
-
-.hero-subtitle {
-  max-width: 560px;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 18px;
-  font-weight: 300;
-  line-height: 1.8;
-}
-
-.hero-actions,
-.cta-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.button-primary,
-.cta-button {
-  min-height: 46px;
-  padding: 0 30px;
-  background: var(--accent);
-  color: #000000;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: var(--shadow-glow);
-}
-
-.button-primary:hover,
-.cta-button:hover {
-  background: #00bbdd;
-  transform: translateY(-1px);
-}
-
-.button-secondary {
-  min-height: 46px;
-  padding: 0 30px;
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.button-secondary:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-}
-
-.scroll-indicator {
-  position: absolute;
-  left: 50%;
-  bottom: 28px;
-  transform: translateX(-50%);
-  color: var(--text-secondary);
-  font-size: 22px;
-  animation: bounce 1.8s infinite;
-}
-
-@keyframes bounce {
-  0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
-  40% { transform: translateX(-50%) translateY(-8px); }
-  60% { transform: translateX(-50%) translateY(-4px); }
-}
-
-.section-label,
-.mcp-badge {
-  justify-content: flex-start;
-  margin-bottom: 24px;
-}
-
-.statement-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.statement {
-  display: grid;
-  grid-template-columns: 52px 1fr;
-  align-items: start;
-  gap: 18px;
-  padding: 12px 0 12px 24px;
-  border-left: 2px solid var(--accent);
-}
-
-.statement-number {
-  padding-top: 5px;
-  color: rgba(0, 217, 255, 0.9);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  letter-spacing: 0.08em;
-}
-
-.statement-text {
-  color: var(--text-primary);
-  font-size: 24px;
-  font-weight: 300;
-  line-height: 1.45;
-}
-
-.fade-in,
-.reveal-on-scroll {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.78s var(--ease), transform 0.78s var(--ease);
-}
-
-.fade-in.is-visible,
-.reveal-on-scroll.is-visible,
-.statement.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.feature-card {
-  position: relative;
-  min-height: 216px;
-  overflow: hidden;
-  padding: 28px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
-    var(--bg-card);
-  transition:
-    border-color 0.2s var(--ease),
-    background 0.2s var(--ease),
-    transform 0.2s var(--ease),
-    box-shadow 0.2s var(--ease);
-}
-
-.feature-card::before {
-  content: "";
-  position: absolute;
-  right: -46px;
-  bottom: -62px;
-  width: 156px;
-  height: 156px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 217, 255, 0.12), transparent 66%);
-  opacity: 0;
-  transition: opacity 0.2s var(--ease);
-}
-
-.feature-card:hover {
-  border-color: rgba(0, 217, 255, 0.28);
-  background:
-    linear-gradient(180deg, rgba(0, 217, 255, 0.026), rgba(255, 255, 255, 0)),
-    rgba(0, 217, 255, 0.026);
-  transform: translateY(-3px);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-}
-
-.feature-card:hover::before {
-  opacity: 1;
-}
-
-.feature-icon {
-  margin-bottom: 18px;
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 28px;
-  line-height: 1;
-}
-
-.feature-title {
-  margin: 0 0 14px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.feature-description {
-  max-width: 32ch;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.mcp {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background:
-    radial-gradient(circle at 10% 20%, rgba(0, 217, 255, 0.07), transparent 20%),
-    linear-gradient(180deg, rgba(8, 8, 16, 0.98) 0%, rgba(4, 4, 9, 0.98) 100%);
-}
-
-.mcp-layout {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 48px;
-  align-items: center;
-}
-
-.mcp-title {
-  margin: 0 0 20px;
-  font-size: 36px;
-  font-weight: 300;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-}
-
-.mcp-copy {
-  max-width: 520px;
-  margin: 0 0 26px;
-  color: var(--text-secondary);
-  font-size: 16px;
-  line-height: 1.8;
-}
-
-.pill-row {
-  display: flex;
-  flex-wrap: wrap;
+/* Buttons */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   gap: 10px;
-}
-
-.tool-pill {
-  padding: 6px 12px;
-  border: 1px solid #1e1e2e;
-  border-radius: 4px;
-  background: #0a0a14;
-  color: var(--accent);
-  font-family: var(--font-mono);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  color: var(--ink);
+  text-decoration:none;
   font-size: 12px;
+  letter-spacing:.08em;
+  cursor:pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.btn:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.05); }
+.btn.primary{
+  border-color: rgba(241,231,198,.22);
+  background:
+    linear-gradient(135deg, rgba(241,231,198,.14), rgba(0,217,255,.13)),
+    radial-gradient(120px 60px at 20% 20%, rgba(0,217,255,.18), transparent 55%),
+    radial-gradient(160px 70px at 80% 40%, rgba(123,97,255,.16), transparent 55%);
+  box-shadow: var(--glow2);
+}
+.btn.primary:hover{ filter: saturate(1.12); box-shadow: 0 0 0 1px rgba(241,231,198,.20), 0 0 160px rgba(123,97,255,.14); }
+.btn.ghost{ border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.02); }
+
+/* Hero */
+.hero{ padding-top: 112px; padding-bottom: 56px; position:relative; }
+.hero-grid{ display:grid; grid-template-columns: 1.05fr .95fr; gap: 34px; align-items:center; min-height: calc(100vh - 150px); }
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: rgba(255,255,255,.78);
+}
+.dot{ width: 7px; height: 7px; border-radius: 999px; background: var(--lime); box-shadow: 0 0 18px rgba(162,255,82,.20); }
+
+.h1{ font-family: var(--serif); font-weight: 600; letter-spacing:-0.02em; font-size: clamp(40px, 4.3vw, 72px); margin: 16px 0 14px; line-height: 1.02; }
+.grad{
+  background: linear-gradient(135deg, rgba(241,231,198,.95), rgba(0,217,255,.86), rgba(123,97,255,.88));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 18px 90px rgba(0,0,0,.45));
 }
 
-.code-block {
-  position: relative;
-  overflow: hidden;
-  padding: 24px;
-  border: 1px solid #1e1e2e;
-  border-radius: 8px;
-  background: #0a0a14;
-  color: rgba(255, 255, 255, 0.78);
-  font-family: var(--font-mono);
+.sub{ color: var(--muted); font-size: 16px; line-height: 1.7; max-width: 54ch; margin: 0 0 22px; }
+
+.cta-row{ margin-top: 18px; display:flex; gap: 12px; flex-wrap: wrap; }
+
+.fineprint{
+  display:flex;
+  gap: 14px;
+  color: rgba(255,255,255,.50);
   font-size: 13px;
-  line-height: 1.9;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.02),
-    0 30px 80px rgba(0, 0, 0, 0.35);
-}
-
-.code-block::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(0, 217, 255, 0.04), transparent 42%);
-}
-
-.code-comment { color: #555566; }
-.code-key { color: #00d9ff; }
-.code-value { color: #98c379; }
-.code-punctuation { color: #888888; }
-
-.tech {
-  padding-top: 72px;
-  padding-bottom: 72px;
-}
-
-.tech-row {
-  display: flex;
+  margin-top: 14px;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
 }
 
-.tech-item {
-  display: inline-flex;
-  align-items: center;
-  padding: 18px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.05em;
+.fineprint span{ display:inline-flex; align-items:center; gap:10px; }
+.fineprint i{ width:6px; height:6px; border-radius:99px; background: rgba(241,231,198,.65); box-shadow: 0 0 16px rgba(241,231,198,.14); display:inline-block; }
+
+/* 3D stage */
+.stage{
+  position:relative;
+  border-radius: var(--radius2);
+  border: 1px solid rgba(255,255,255,.10);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  overflow:hidden;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.stage::before{
+  content:"";
+  position:absolute; inset:-2px;
+  background:
+    radial-gradient(420px 240px at 20% 18%, rgba(0,217,255,.20), transparent 60%),
+    radial-gradient(460px 260px at 80% 30%, rgba(123,97,255,.20), transparent 64%),
+    radial-gradient(560px 360px at 55% 110%, rgba(241,231,198,.16), transparent 60%);
+  opacity: .85;
+  filter: blur(2px);
+  z-index: 0;
+}
+
+.stage::after{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.08), transparent 55%),
+    radial-gradient(900px 400px at 50% 0%, rgba(255,255,255,.08), transparent 65%);
+  opacity:.75;
+  z-index: 0;
+  pointer-events:none;
+}
+
+.stage-inner{ position:relative; z-index:1; padding: 18px; }
+
+.hud{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+}
+
+.hud-left{ display:flex; align-items:center; gap:10px; }
+.lights{ display:flex; gap:7px; }
+.lights b{ width:10px; height:10px; border-radius:999px; display:block; }
+.lights b:nth-child(1){ background:#ff5f57; box-shadow: 0 0 12px rgba(255,95,87,.18); }
+.lights b:nth-child(2){ background:#febc2e; box-shadow: 0 0 12px rgba(254,188,46,.16); }
+.lights b:nth-child(3){ background:#28c840; box-shadow: 0 0 12px rgba(40,200,64,.14); }
+
+.hud-title{ font-family: var(--mono); font-size: 12px; letter-spacing:.16em; text-transform:uppercase; color: rgba(255,255,255,.72); }
+
+.hud-right{ display:flex; gap:8px; }
+.chip{
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .12em;
   text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.70);
 }
 
-.tech-item + .tech-item {
-  position: relative;
+/* Interactive 3D cards inside stage */
+.bento{
+  display:grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: 12px;
+  margin-top: 12px;
 }
 
-.tech-item + .tech-item::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 1px;
-  background: var(--border);
+.card{
+  position:relative;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  overflow:hidden;
+  padding: 14px;
+  min-height: 142px;
+  transform: translateZ(22px);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+.card:hover{ border-color: rgba(241,231,198,.22); transform: translateZ(26px) translateY(-1px); }
+
+.card h3{ margin:0 0 8px; font-size: 14px; letter-spacing:.10em; text-transform: uppercase; color: rgba(255,255,255,.86); }
+.card p{ margin:0; color: rgba(255,255,255,.62); font-size: 13px; line-height: 1.6; }
+
+.spark{
+  position:absolute; inset:-60px;
+  background: conic-gradient(from 220deg, rgba(0,217,255,.0), rgba(0,217,255,.24), rgba(123,97,255,.20), rgba(241,231,198,.16), rgba(0,217,255,.0));
+  filter: blur(18px);
+  opacity:.65;
+  animation: spin 10s linear infinite;
+  mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,.78), transparent 62%);
+  pointer-events:none;
+}
+@keyframes spin{ to{ transform: rotate(360deg); } }
+
+.term{
+  grid-column: 1 / -1;
+  padding: 0;
+  min-height: auto;
 }
 
-.cta {
-  padding-top: 120px;
-  padding-bottom: 120px;
-  text-align: center;
+.code{
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(255,255,255,.78);
+  padding: 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  white-space: pre;
+  overflow:auto;
+  max-height: 210px;
 }
+.code .k{ color: rgba(0,217,255,.90); }
+.code .t{ color: rgba(241,231,198,.92); }
+.code .m{ color: rgba(162,255,82,.85); }
 
-.cta-title {
-  margin: 0 0 16px;
-  font-size: clamp(36px, 6vw, 72px);
-  font-weight: 300;
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-}
+/* Sections */
+section{ padding: 44px 0; }
 
-.cta-copy {
-  margin: 0 0 28px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.cta-button {
-  min-height: 54px;
-  padding: 0 46px;
-  font-size: 16px;
-}
-
-footer {
-  border-top: 1px solid var(--border);
-  color: var(--text-secondary);
-  padding: 24px 48px;
-}
-
-.footer-inner {
-  width: min(100%, var(--container));
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.section-title{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
   gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  margin-bottom: 22px;
+  flex-wrap: wrap;
 }
 
-@media (max-width: 1100px) {
-  .features-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .mcp-layout {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
+.kicker{
+  font-family: var(--mono);
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: rgba(241,231,198,.82);
+  font-size: 12px;
+  margin-bottom: 10px;
 }
 
-@media (max-width: 800px) {
-  .nav,
-  section,
-  footer {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
+.h2{ font-family: var(--serif); font-weight: 600; font-size: clamp(24px, 2.4vw, 36px); margin: 0; }
 
-  .nav {
-    height: auto;
-    min-height: 58px;
-    padding-top: 12px;
-    padding-bottom: 12px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
+.grid3{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 
-  .hero {
-    min-height: auto;
-    padding-top: 128px;
-    padding-bottom: 96px;
-  }
-
-  .hero-inner {
-    gap: 22px;
-  }
-
-  .hero-title {
-    letter-spacing: 0.02em;
-  }
-
-  .statement {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    padding-left: 18px;
-  }
-
-  .statement-text {
-    font-size: 20px;
-  }
-
-  .cta {
-    padding-top: 96px;
-    padding-bottom: 96px;
-  }
+.feature{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  backdrop-filter: blur(14px);
+  padding: 18px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset;
 }
 
-@media (max-width: 560px) {
-  .nav-brand,
-  .footer-brand {
-    letter-spacing: 0.22em;
-  }
+.feature b{ display:block; font-size: 13px; letter-spacing:.10em; text-transform: uppercase; color: rgba(255,255,255,.86); margin-bottom: 10px; }
+.feature span{ display:block; color: rgba(255,255,255,.62); line-height: 1.65; font-size: 14px; }
 
-  .nav-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .hero-title {
-    font-size: clamp(58px, 22vw, 88px);
-  }
-
-  .hero-subtitle {
-    font-size: 16px;
-  }
-
-  .features-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .feature-card {
-    min-height: auto;
-  }
-
-  .tech-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .tech-item {
-    padding: 16px 14px;
-  }
-
-  .tech-item::before,
-  .tech-item + .tech-item::before {
-    display: none;
-  }
-
-  .footer-inner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.logos{
+  display:flex; gap: 14px; flex-wrap:wrap;
+  margin-top: 14px;
+}
+.logo-pill{
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing:.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.70);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
+.cta-band{
+  border-radius: 24px;
+  border:  1px solid rgba(255,255,255,.12);
+  background: linear-gradient(135deg, rgba(241,231,198,.10), rgba(0,217,255,.09), rgba(123,97,255,.09));
+  padding: 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 18px;
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
 }
+
+.cta-band h3{ margin:0; font-family: var(--serif); font-weight: 600; font-size: 22px; }
+.cta-band p{ margin:6px 0 0; color: rgba(255,255,255,.64); max-width: 56ch; }
+
+footer{
+  padding: 32px 0 40px;
+  color: rgba(255,255,255,.54);
+  font-size: 13px;
+}
+.foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding-top: 16px;
+  flex-wrap: wrap;
+}
+
+/* Responsiveness */
+@media (max-width: 980px){
+  .hero-grid{ grid-template-columns: 1fr; min-height: auto; }
+  .stage{ max-width: 740px; }
+  .grid3{ grid-template-columns: 1fr; }
+  .nav-links{ display:none; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ scroll-behavior:auto !important; }
+  .spark{ animation: none !important; }
+  .btn, .card{ transition: none !important; }
+}
+
+.landing-linklike{ border: 0; background: transparent; padding: 0; font: inherit; cursor: pointer; }
 `;
