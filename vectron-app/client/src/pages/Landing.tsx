@@ -97,7 +97,7 @@ export default function Landing() {
                             Docs
                         </a>
                         <button type="button" className="btn primary" onClick={goToApp}>
-                            Launch App ΓåÆ
+                            Launch App →
                         </button>
                     </div>
                 </div>
@@ -107,18 +107,18 @@ export default function Landing() {
                 <div className="container hero-grid">
                     <div>
                         <div className="pill">
-                            <span className="dot" aria-hidden="true" /> Open Source ΓÇó MIT-minded ΓÇó MCP-ready
+                            <span className="dot" aria-hidden="true" /> Open Source · MIT-minded · MCP-ready
                         </div>
                         <h1 className="h1">
                             An <span className="grad">ultra-premium</span> agentic view of your codebase.
                         </h1>
                         <p className="sub">
-                            VECTRON turns repositories into a living system mapΓÇödependency graph, blast radius, semantic search, and MCP toolsΓÇöso teams ship faster without breaking things.
+                            VECTRON turns repositories into a living system map—dependency graph, blast radius, semantic search, and MCP tools—so teams ship faster without breaking things.
                         </p>
 
                         <div className="cta-row">
                             <button type="button" className="btn primary" onClick={goToApp}>
-                                Launch VECTRON ΓåÆ
+                                Launch VECTRON →
                             </button>
                             <a className="btn" href="#workflow">
                                 See it in action
@@ -147,7 +147,7 @@ export default function Landing() {
                                         <b />
                                         <b />
                                     </div>
-                                    <div className="hud-title">VECTRON ΓÇó Codebase Intelligence</div>
+                                    <div className="hud-title">VECTRON · Codebase Intelligence</div>
                                 </div>
                                 <div className="hud-right">
                                     <div className="chip">Graph</div>
@@ -175,13 +175,13 @@ export default function Landing() {
                                     <h3 style={{ margin: '12px 14px 10px' }}>Preview</h3>
                                     <div className="code" role="region" aria-label="Example commands">
                                         $ <span className="k">vectron</span> <span className="t">index</span> ./repo
-                                        {'\n'}Γå│ graph: <span className="m">2,318</span> modules ΓÇó <span className="m">8,441</span> edges
-                                        {'\n'}Γå│ risk: <span className="m">3</span> critical paths touched
+                                        {'\n'}├ graph: <span className="m">2,318</span> modules · <span className="m">8,441</span> edges
+                                        {'\n'}├ risk: <span className="m">3</span> critical paths touched
                                         {'\n\n'}$ <span className="k">vectron</span> <span className="t">ask</span> "what breaks if I change auth middleware?"
-                                        {'\n'}Γå│ answer: 7 routes, 2 services, 1 async consumer
-                                        {'\n'}Γå│ suggested tests: auth.spec.ts, api-contract.spec.ts
+                                        {'\n'}├ answer: 7 routes, 2 services, 1 async consumer
+                                        {'\n'}├ suggested tests: auth.spec.ts, api-contract.spec.ts
                                         {'\n\n'}$ <span className="k">vectron</span> <span className="t">mcp</span> connect
-                                        {'\n'}Γå│ tools: repo_search, dependency_trace, diff_summarize
+                                        {'\n'}├ tools: repo_search, dependency_trace, diff_summarize
                                     </div>
                                 </div>
                             </div>
@@ -223,7 +223,7 @@ export default function Landing() {
                         </div>
                         <div className="feature">
                             <b>Design-grade UI</b>
-                            <span>Glassmorphism, bento layouts, and subtle depthΓÇöresponsive, accessible, and fast.</span>
+                            <span>Glassmorphism, bento layouts, and subtle depth—responsive, accessible, and fast.</span>
                         </div>
                         <div className="feature">
                             <b>Local-first</b>
@@ -264,7 +264,7 @@ export default function Landing() {
                         </div>
                         <div className="feature">
                             <b>2. Explore</b>
-                            <span>Navigate bento cards and tracesΓÇöfollow edges to what matters.</span>
+                            <span>Navigate bento cards and traces—follow edges to what matters.</span>
                         </div>
                         <div className="feature">
                             <b>3. Ship</b>
@@ -276,11 +276,11 @@ export default function Landing() {
                     <div className="cta-band">
                         <div>
                             <h3>Hermes-level polish + 3D glass interaction.</h3>
-                            <p>Minimal copy, editorial type, premium glass, and responsive performanceΓÇöbuilt to feel like a top-tier AI company.</p>
+                            <p>Minimal copy, editorial type, premium glass, and responsive performance—built to feel like a top-tier AI company.</p>
                         </div>
                         <div className="cta-row" style={{ margin: 0 }}>
                             <button type="button" className="btn primary" onClick={goToApp}>
-                                Launch App ΓåÆ
+                                Launch App →
                             </button>
                             <a className="btn ghost" href="#capabilities">
                                 Capabilities
@@ -332,11 +332,11 @@ export default function Landing() {
                             >
                                 Home
                             </a>{' '}
-                            ΓÇó{' '}
+                            ·{' '}
                             <a href="/docs" target="_blank" rel="noreferrer" style={{ color: 'rgba(255,255,255,.70)' }}>
                                 Docs
                             </a>{' '}
-                            ΓÇó{' '}
+                            ·{' '}
                             <button
                                 type="button"
                                 className="landing-linklike"
@@ -347,7 +347,7 @@ export default function Landing() {
                             </button>
                         </div>
                         <div>
-                            ┬⌐ {year} ΓÇó Built for speed
+                            © {year} · Built for speed
                         </div>
                     </div>
                 </div>
