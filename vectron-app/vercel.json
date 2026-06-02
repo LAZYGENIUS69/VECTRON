@@ -7,6 +7,9 @@
     { "source": "/api", "destination": "/api/index.ts" },
     { "source": "/api/:path*", "destination": "/api/index.ts" },
     { "source": "/health", "destination": "/api/index.ts" },
+    { "source": "/app", "destination": "/index.html" },
+    { "source": "/app/:path*", "destination": "/index.html" },
+    { "source": "/", "destination": "/landing.html" },
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }
