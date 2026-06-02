@@ -1,15 +1,14 @@
 {
   "version": 2,
   "installCommand": "npm ci --prefix client && npm ci --prefix server",
-  "buildCommand": "npm run build --prefix client && npm run build --prefix server",
+  "buildCommand": "npm run build --prefix client && npm run build --prefix server && mv client/dist/index.html client/dist/app.html && mv client/dist/landing.html client/dist/index.html",
   "outputDirectory": "client/dist",
   "rewrites": [
     { "source": "/api", "destination": "/api/index.ts" },
     { "source": "/api/:path*", "destination": "/api/index.ts" },
     { "source": "/health", "destination": "/api/index.ts" },
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/app/:path*", "destination": "/index.html" },
-    { "source": "/", "destination": "/landing.html" },
-    { "source": "/:path*", "destination": "/index.html" }
+    { "source": "/app", "destination": "/app.html" },
+    { "source": "/app/:path*", "destination": "/app.html" },
+    { "source": "/:path*", "destination": "/app.html" }
   ]
 }
