@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "build": "npm install --prefix vectron-app/server && npm install --prefix vectron-app/client && npm run build --prefix vectron-app/client && npm run build --prefix vectron-app/server",
+    "start": "node vectron-app/server/dist/index.js"
+  },
   "dependencies": {
     "framer-motion": "^12.38.0"
   },
