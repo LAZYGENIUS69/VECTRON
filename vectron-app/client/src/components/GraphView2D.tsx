@@ -773,7 +773,7 @@ export default function GraphView2D({
     };
 
     const settings = { ...inferred, ...overrides };
-    const duration = N > 10000 ? 45000 : N > 5000 ? 35000 : N > 2000 ? 30000 : N > 500 ? 25000 : 20000;
+    const duration = N > 10000 ? 22000 : N > 5000 ? 18000 : N > 2000 ? 14000 : N > 500 ? 10000 : 7000;
 
     const layout = new FA2Layout(graph, { settings });
     layoutRef.current = layout;
