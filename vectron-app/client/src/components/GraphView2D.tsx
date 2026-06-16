@@ -79,6 +79,13 @@ const EDGE_LEGEND = [
   { hue: '#94a3b8', tag: 'DOCUMENTS' },
 ];
 
+const POLISH_FRAMES = 18;
+const FAR_NODE_RADIUS = 460;
+const BALANCED_RADIUS = 330;
+const ISOLATED_RADIUS = 120;
+const MAX_EDGE_LENGTH = 280;
+const MIN_NODE_GAP = 18;
+
 /* ═══════════════════════════════════════════════════════════════════
    UTILITY FUNCTIONS
    ═══════════════════════════════════════════════════════════════════ */
@@ -136,6 +143,10 @@ function tint(a: string, b: string, t: number): string {
   );
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 /**
  * Computes rendered node radius from entity kind and connectivity.
  * Logarithmic degree bonus ensures hub nodes stand out without
@@ -143,12 +154,12 @@ function tint(a: string, b: string, t: number): string {
  */
 function computeNodeRadius(kind: string, degree: number, totalNodes: number): number {
   const BASE: Record<string, number> = {
-    file: 7, function: 3, class: 9, method: 2.5, python_function: 3.5, python_class: 8.5, config: 3, doc: 4, import: 1.5, _fallback: 4,
+    file: 5.2, function: 2.3, class: 6.8, method: 1.9, python_function: 2.6, python_class: 6.2, config: 2.4, doc: 3, import: 1.2, _fallback: 3,
   };
   const b     = BASE[kind] ?? BASE._fallback;
-  const bonus = Math.log1p(degree) * 0.9;
-  const density = totalNodes > 5000 ? 0.4 : totalNodes > 1000 ? 0.6 : 0.85;
-  return Math.max(1.5, Math.min((b + bonus) * density, 12));
+  const bonus = Math.log1p(degree) * 0.55;
+  const density = totalNodes > 5000 ? 0.34 : totalNodes > 1000 ? 0.5 : 0.72;
+  return Math.max(1.2, Math.min((b + bonus) * density, 8.5));
 }
 
 /**
@@ -161,6 +172,110 @@ function computeNodeMass(kind: string, totalNodes: number): number {
     class: 5, file: 3, function: 2, method: 1.5, python_function: 2, python_class: 4, config: 1.8, doc: 1.8, import: 1, _fallback: 2,
   };
   return (base[kind] ?? base._fallback) * (kind === 'import' ? 1 : scale);
+}
+
+function gentlyShapeGraph(graph: Graph, strength = 0.12) {
+  const nodeIds = graph.nodes();
+  if (nodeIds.length === 0) return;
+
+  let weightedX = 0;
+  let weightedY = 0;
+  let totalWeight = 0;
+  nodeIds.forEach((nodeId) => {
+    const attrs = graph.getNodeAttributes(nodeId);
+    const degree = graph.degree(nodeId);
+    const weight = degree > 0 ? Math.min(8, degree) : 0.35;
+    weightedX += (attrs.x as number) * weight;
+    weightedY += (attrs.y as number) * weight;
+    totalWeight += weight;
+  });
+
+  const centerX = weightedX / Math.max(1, totalWeight);
+  const centerY = weightedY / Math.max(1, totalWeight);
+  const isolated = nodeIds.filter((nodeId) => graph.degree(nodeId) === 0);
+  const isolatedIndex = new Map(isolated.map((nodeId, index) => [nodeId, index]));
+  const phi = Math.PI * (3 - Math.sqrt(5));
+
+  nodeIds.forEach((nodeId) => {
+    const attrs = graph.getNodeAttributes(nodeId);
+    const degree = graph.degree(nodeId);
+    const x = attrs.x as number;
+    const y = attrs.y as number;
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const distance = Math.hypot(dx, dy) || 1;
+
+    if (degree === 0) {
+      const index = isolatedIndex.get(nodeId) ?? 0;
+      const angle = index * phi;
+      const radius = ISOLATED_RADIUS * Math.sqrt((index + 1) / Math.max(1, isolated.length));
+      graph.setNodeAttribute(nodeId, 'x', x + (centerX + Math.cos(angle) * radius - x) * strength);
+      graph.setNodeAttribute(nodeId, 'y', y + (centerY + Math.sin(angle) * radius - y) * strength);
+      return;
+    }
+
+    if (distance > FAR_NODE_RADIUS) {
+      const targetDistance = BALANCED_RADIUS + Math.min(70, Math.log1p(degree) * 16);
+      const pull = strength * clamp((distance - FAR_NODE_RADIUS) / FAR_NODE_RADIUS, 0.08, 0.45);
+      graph.setNodeAttribute(nodeId, 'x', x + (centerX + (dx / distance) * targetDistance - x) * pull);
+      graph.setNodeAttribute(nodeId, 'y', y + (centerY + (dy / distance) * targetDistance - y) * pull);
+    } else {
+      graph.setNodeAttribute(nodeId, 'x', x + (centerX - x) * strength * 0.012);
+      graph.setNodeAttribute(nodeId, 'y', y + (centerY - y) * strength * 0.012);
+    }
+  });
+
+  graph.forEachEdge((edgeId, attrs, source, target) => {
+    const sourceAttrs = graph.getNodeAttributes(source);
+    const targetAttrs = graph.getNodeAttributes(target);
+    const sx = sourceAttrs.x as number;
+    const sy = sourceAttrs.y as number;
+    const tx = targetAttrs.x as number;
+    const ty = targetAttrs.y as number;
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const length = Math.hypot(dx, dy);
+    if (length <= MAX_EDGE_LENGTH) return;
+
+    const excess = (length - MAX_EDGE_LENGTH) / length;
+    const move = excess * strength * 0.35;
+    if (graph.degree(source) > 0) {
+      graph.setNodeAttribute(source, 'x', sx + dx * move);
+      graph.setNodeAttribute(source, 'y', sy + dy * move);
+    }
+    if (graph.degree(target) > 0) {
+      graph.setNodeAttribute(target, 'x', tx - dx * move);
+      graph.setNodeAttribute(target, 'y', ty - dy * move);
+    }
+  });
+
+  for (let i = 0; i < nodeIds.length; i++) {
+    const a = nodeIds[i];
+    if (graph.degree(a) === 0) continue;
+    const aAttrs = graph.getNodeAttributes(a);
+    const ax = aAttrs.x as number;
+    const ay = aAttrs.y as number;
+
+    for (let j = i + 1; j < nodeIds.length; j++) {
+      const b = nodeIds[j];
+      if (graph.degree(b) === 0) continue;
+      const bAttrs = graph.getNodeAttributes(b);
+      const bx = bAttrs.x as number;
+      const by = bAttrs.y as number;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const distance = Math.hypot(dx, dy) || 0.001;
+      if (distance >= MIN_NODE_GAP) continue;
+
+      const push = (MIN_NODE_GAP - distance) * strength * 0.2;
+      const nx = dx / distance;
+      const ny = dy / distance;
+      graph.setNodeAttribute(a, 'x', ax - nx * push);
+      graph.setNodeAttribute(a, 'y', ay - ny * push);
+      graph.setNodeAttribute(b, 'x', bx + nx * push);
+      graph.setNodeAttribute(b, 'y', by + ny * push);
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -200,6 +315,7 @@ export default function GraphView2D({
   const graphRef     = useRef<Graph | null>(null);
   const layoutRef    = useRef<FA2Layout | null>(null);
   const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const polishFrameRef = useRef<number | null>(null);
   const layoutStartedAtRef = useRef<number | null>(null);
   const remainingDurationRef = useRef(0);
 
@@ -236,6 +352,10 @@ export default function GraphView2D({
   const cleanup = useCallback(() => {
     timerRef.current && clearTimeout(timerRef.current);
     timerRef.current = null;
+    if (polishFrameRef.current !== null) {
+      cancelAnimationFrame(polishFrameRef.current);
+      polishFrameRef.current = null;
+    }
     layoutRef.current?.kill();
     layoutRef.current = null;
     layoutStartedAtRef.current = null;
@@ -301,8 +421,23 @@ export default function GraphView2D({
     layoutStartedAtRef.current = null;
     remainingDurationRef.current = 0;
 
-    noverlap.assign(graph, { maxIterations: 20, settings: { ratio: 1.1, margin: 10 } });
-    sigma.refresh();
+    noverlap.assign(graph, { maxIterations: 26, settings: { ratio: 1.18, margin: 8 } });
+
+    let frame = 0;
+    const polish = () => {
+      gentlyShapeGraph(graph, 0.1);
+      sigma.refresh();
+      frame += 1;
+
+      if (frame < POLISH_FRAMES) {
+        polishFrameRef.current = requestAnimationFrame(polish);
+        return;
+      }
+
+      polishFrameRef.current = null;
+    };
+    polishFrameRef.current = requestAnimationFrame(polish);
+
     setComputing(false);
     setLayoutPaused(false);
   }, []);
@@ -348,8 +483,8 @@ export default function GraphView2D({
     const N = nodes.length;
 
     /* ── 1. SEED LAYOUT — Fermat spiral for anchors ─────────────── */
-    const SPIRAL_RADIUS  = Math.sqrt(N) * 40;
-    const SCATTER_RADIUS = Math.sqrt(N) * 3;
+    const SPIRAL_RADIUS  = Math.sqrt(N) * 30;
+    const SCATTER_RADIUS = Math.sqrt(N) * 2.4;
     const PHI            = Math.PI * (3 - Math.sqrt(5));
 
     const anchors    = nodes.filter(n => n.type === 'file');
